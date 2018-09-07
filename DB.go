@@ -7,16 +7,21 @@ It can handel big binnary files as structured objects with fields and subfields 
 package gotinydb
 
 import (
-	"archive/zip"
-	"compress/flate"
 	"context"
-	"encoding/json"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
-	"time"
+
+	"github.com/lucas-clemente/quic-go/h2quic"
 
 	"github.com/dgraph-io/badger"
+	quic "github.com/lucas-clemente/quic-go"
 )
 
 // Open simply opens a new or existing database
@@ -164,122 +169,69 @@ func (d *DB) DeleteCollection(collectionName string) error {
 	}
 }
 
-// Backup run a backup to the given archive
-func (d *DB) Backup(path string, since uint64) error {
-	t0 := time.Now()
-	file, openFileErr := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, FilePermission)
-	if openFileErr != nil {
-		return openFileErr
-	}
-	defer file.Close()
-
-	zipWriter := zip.NewWriter(file)
-	// Setup compression
-	zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-		return flate.NewWriter(out, flate.BestCompression)
-	})
-
-	backupFile, createFileErr := zipWriter.Create("archive")
-	if createFileErr != nil {
-		return createFileErr
-	}
-
-	timestamp, backupErr := d.valueStore.Backup(backupFile, since)
-	if backupErr != nil {
-		return backupErr
-	}
-
-	configFile, createFileErr := zipWriter.Create("config.json")
-	if createFileErr != nil {
-		return createFileErr
-	}
-
-	archivePointer := d.loadArchive()
-	archivePointer.StartTime = t0
-	archivePointer.EndTime = time.Now()
-	archivePointer.Timestamp = timestamp
-
-	configAsBytes, marshalErr := json.Marshal(archivePointer)
-	if marshalErr != nil {
-		return marshalErr
-	}
-
-	_, writeErr := configFile.Write(configAsBytes)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return zipWriter.Close()
-}
-
-// Load restor the database from a backup file
-func (d *DB) Load(path string) error {
-	zipReader, openZipErr := zip.OpenReader(path)
-	if openZipErr != nil {
-		return openZipErr
-	}
-
-	config := new(archive)
-
-	for _, file := range zipReader.File {
-		switch file.Name {
-		case "archive":
-			reader, openErr := file.Open()
-			if openErr != nil {
-				return openErr
-			}
-
-			loadErr := d.valueStore.Load(reader)
-			if loadErr != nil {
-				return loadErr
-			}
-		case "config.json":
-			configReader, openConfigReaderErr := file.Open()
-			if openConfigReaderErr != nil {
-				return openConfigReaderErr
-			}
-
-			decodeErr := json.NewDecoder(configReader).Decode(config)
-			if decodeErr != nil {
-				return decodeErr
-			}
-		}
-	}
-
-	// Add the indexes to the filledup database
-	for _, collectionName := range config.Collections {
-		collection, useCollectionErr := d.Use(collectionName)
-		if useCollectionErr != nil {
-			return useCollectionErr
-		}
-		for _, index := range config.Indexes[collectionName] {
-			err := collection.SetIndex(index.Name, index.Type, index.Selector...)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (d *DB) loadArchive() *archive {
-	ret := new(archive)
-	ret.Collections = make([]string, len(d.collections))
-	ret.Indexes = map[string][]*indexType{}
-
-	for i, collection := range d.collections {
-		ret.Collections[i] = collection.name
-
-		ret.Indexes[collection.name] = make([]*indexType, len(collection.indexes))
-		for j, index := range collection.indexes {
-			ret.Indexes[collection.name][j] = index
-		}
-	}
-
-	return ret
-}
-
 // GetCollections returns all collection pointers
 func (d *DB) GetCollections() []*Collection {
 	return d.collections
+}
+
+func (d *DB) StartNetworkService() error {
+	d.netWorkListener = &h2quic.Server{
+		QuicConfig: 
+	}
+
+	h2quic.ListenAndServe(d.options.AddressBindNetworkService, certFile, keyFile, nil)
+}
+
+func (d *DB) ConnectToMaster(addr string) error {
+	message := "ok"
+
+	session, err := quic.DialAddr(addr, &tls.Config{InsecureSkipVerify: true}, nil)
+	if err != nil {
+		return err
+	}
+
+	stream, err := session.OpenStreamSync()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Client: Sending '%s'\n", message)
+	_, err = stream.Write([]byte(message))
+	if err != nil {
+		return err
+	}
+
+	buf := make([]byte, len(message))
+	_, err = io.ReadFull(stream, buf)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Client: Got '%s'\n", buf)
+
+	return nil
+}
+
+func (d *DB) ConnectToSlave() {
+
+}
+
+// Setup a bare-bones TLS config for the server
+func generateTLSConfig() *tls.Config {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		panic(err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }

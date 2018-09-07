@@ -10,6 +10,28 @@
   revision = "28f7e881ca57bc00e028f9ede9f0d9104cfeef5e"
 
 [[projects]]
+  branch = "master"
+  digest = "1:e05c7b72aeba7570b1d2f9c6dc9f0373d224b16b70fa886c504de867bffe1c2e"
+  name = "github.com/aead/chacha20"
+  packages = [
+    ".",
+    "chacha",
+  ]
+  pruneopts = "UT"
+  revision = "8b13a72661dae6e9e5dea04f344f0dc95ea29547"
+
+[[projects]]
+  branch = "master"
+  digest = "1:1f96c755246f1b688f1b2f0d2ba6cff5a94ceb35a7c5d06f7489e5e348ce356d"
+  name = "github.com/bifurcation/mint"
+  packages = [
+    ".",
+    "syntax",
+  ]
+  pruneopts = "UT"
+  revision = "93c51c6ce11597a26e246fc33a301d62d3439cd2"
+
+[[projects]]
   digest = "1:0f98f59e9a2f4070d66f0c9c39561f68fcd1dc837b22a852d28d0003aebd1b1e"
   name = "github.com/boltdb/bolt"
   packages = ["."]
@@ -18,7 +40,15 @@
   version = "v1.3.1"
 
 [[projects]]
-  digest = "1:e69eed3a095cfa14010241bec50ed52af765480899ac95ffd5687f35091f9e09"
+  digest = "1:f438d91be142877c3ad83157992c91de787ddfbddcc2a7da1ef6ef61606cadc4"
+  name = "github.com/cheekybits/genny"
+  packages = ["generic"]
+  pruneopts = "UT"
+  revision = "d2cf3cdd35ce0d789056c4bc02a4d6349c947caf"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:21ac9938fb1098b3a7b0dd909fb30878d33231177fac11a2821114eb9c1088ff"
   name = "github.com/dgraph-io/badger"
   packages = [
     ".",
@@ -65,6 +95,52 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
+  digest = "1:8ec8d88c248041a6df5f6574b87bc00e7e0b493881dad2e7ef47b11dc69093b5"
+  name = "github.com/hashicorp/golang-lru"
+  packages = [
+    ".",
+    "simplelru",
+  ]
+  pruneopts = "UT"
+  revision = "20f1fb78b0740ba8c3cb143a61e86ba5c8669768"
+  version = "v0.5.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:6fe6fc7707d8c37fb305362a324462d898bc1c01eaa2bfe15383ec21f6540c71"
+  name = "github.com/lucas-clemente/aes12"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cd47fb39b79f867c6e4e5cd39cf7abd799f71670"
+
+[[projects]]
+  digest = "1:c9861e85e283dcac307405812c044c40538bb6c9eb34760d9220f2fd3c53ad4a"
+  name = "github.com/lucas-clemente/quic-go"
+  packages = [
+    ".",
+    "internal/ackhandler",
+    "internal/congestion",
+    "internal/crypto",
+    "internal/flowcontrol",
+    "internal/handshake",
+    "internal/protocol",
+    "internal/utils",
+    "internal/wire",
+    "qerr",
+  ]
+  pruneopts = "UT"
+  revision = "fb4009857e8cb00c245910a5ffd1a4cd276bd051"
+  version = "v0.10.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:08b3484b0665f09be0f1f699a38e877708453795df07a3d6e4cd41fa7a2cabf0"
+  name = "github.com/lucas-clemente/quic-go-certificates"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "d2f86524cced5186554df90d92529757d22c1cb6"
+
+[[projects]]
   branch = "master"
   digest = "1:c99caced18127b6ae7a0be25bdf64155a8b5337d18fce1e7df0a8e68beb18767"
   name = "github.com/minio/highwayhash"
@@ -90,7 +166,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cedc1a3a48e70dec85168f8c19de5433bf54a75da94c4d165c4cbf400b6a1e49"
+  digest = "1:5fa7ffa0b0721b59345a126aa81fcf4344f34ab74bdd620f6eb9a0b5043605f9"
+  name = "golang.org/x/crypto"
+  packages = [
+    "curve25519",
+    "hkdf",
+  ]
+  pruneopts = "UT"
+  revision = "0709b304e793a5edb4a2c0145f281ecdc20838a4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:a7b3aa11890fbe342ed4bf76a27986473d13103ae14796dcf2b55521c93e2547"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -102,7 +189,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:70656e26ab4a96e683a21d677630edb5239a3d60b2d54bdc861c808ab5aa42c7"
+  digest = "1:bb0fe59917bdd5b89f49b9a8b26e5f465e325d9223b3a8e32254314bdf51e0f1"
   name = "golang.org/x/sys"
   packages = [
     "cpu",
@@ -120,6 +207,7 @@
     "github.com/dgraph-io/badger/options",
     "github.com/fatih/structs",
     "github.com/google/btree",
+    "github.com/lucas-clemente/quic-go",
     "github.com/minio/highwayhash",
   ]
   solver-name = "gps-cdcl"

@@ -7,15 +7,26 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger"
+	"github.com/lucas-clemente/quic-go/h2quic"
 )
 
 type (
+	// Replica defines the element to interact with the rest of the cluster
+	Replica struct {
+		Master  bool
+		Address string
+	}
+
 	// DB is the main element of the package and provide all access to sub commands
 	DB struct {
 		options *Options
 
 		valueStore  *badger.DB
 		collections []*Collection
+
+		master          *Replica
+		slaves          []*Replica
+		netWorkListener *h2quic.Server
 
 		ctx     context.Context
 		closing bool
@@ -28,6 +39,8 @@ type (
 		InternalQueryLimit               int
 		// This define the limit which apply to the serialization of the writes
 		PutBufferLimit int
+
+		AddressBindNetworkService string
 
 		BadgerOptions *badger.Options
 		BoltOptions   *bolt.Options

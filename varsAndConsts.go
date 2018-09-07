@@ -18,6 +18,8 @@ var (
 	DefaultInternalQueryLimit = 1000
 	DefaultPutBufferLimit     = 1000
 
+	DefaultAddressBindNetworkService = ":34319"
+
 	DefaultBadgerOptions = &badger.Options{
 		DoNotCompact:        false,
 		LevelOneSize:        256 << 20,
@@ -52,6 +54,8 @@ func NewDefaultOptions(path string) *Options {
 		QueryTimeOut:       DefaultQueryTimeOut,
 		InternalQueryLimit: DefaultQueryLimit,
 		PutBufferLimit:     DefaultPutBufferLimit,
+
+		AddressBindNetworkService: DefaultAddressBindNetworkService,
 
 		BadgerOptions: DefaultBadgerOptions,
 		BoltOptions:   DefaultBoltOptions,
