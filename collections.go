@@ -6,29 +6,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/dgraph-io/badger"
 )
 
 // Put add the given content to database with the given ID
 func (c *Collection) Put(id string, content interface{}) error {
-	ctx, cancel := context.WithTimeout(c.ctx, c.options.TransactionTimeOut)
-	defer cancel()
+	return c.put(id, newTransactionElement(id, content, true, c))
+}
 
-	// verify that closing as not been called
-	if !c.isRunning() {
-		return ErrClosedDB
-	}
-
-	tr := newTransaction(ctx)
+// PutTTL does same as Put but with an expiration to the record
+func (c *Collection) PutTTL(id string, content interface{}, duration time.Duration) error {
 	trElem := newTransactionElement(id, content, true, c)
-
-	tr.addTransaction(trElem)
-
-	// Run the insertion
-	c.writeTransactionChan <- tr
-	// And wait for the end of the insertion
-	return <-tr.responseChan
+	trElem.ttl = time.Now().Add(duration)
+	return c.put(id, trElem)
 }
 
 // PutMulti put the given elements in the DB with one single write transaction.

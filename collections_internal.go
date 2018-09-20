@@ -39,6 +39,25 @@ func (c *Collection) buildStoreID(id string) []byte {
 	return c.buildIDWhitPrefixData([]byte(id))
 }
 
+func (c *Collection) put(id string, trElem *writeTransactionElement) error {
+	ctx, cancel := context.WithTimeout(c.ctx, c.options.TransactionTimeOut)
+	defer cancel()
+
+	// verify that closing as not been called
+	if !c.isRunning() {
+		return ErrClosedDB
+	}
+
+	tr := newTransaction(ctx)
+
+	tr.addTransaction(trElem)
+
+	// Run the insertion
+	c.writeTransactionChan <- tr
+	// And wait for the end of the insertion
+	return <-tr.responseChan
+}
+
 func (c *Collection) putIntoIndexes(ctx context.Context, txn *badger.Txn, writeTransaction *writeTransactionElement) error {
 	err := c.cleanRefs(ctx, txn, writeTransaction.id)
 	if err != nil {
@@ -345,6 +364,11 @@ func (c *Collection) insertOrDeleteStore(ctx context.Context, txn *badger.Txn, i
 		e := &badger.Entry{
 			Key:   storeID,
 			Value: encrypt(c.options.privateCryptoKey, storeID, writeTransaction.contentAsBytes),
+		}
+
+		if !writeTransaction.ttl.IsZero() {
+			fmt.Println("not zero")
+			e.ExpiresAt = uint64(writeTransaction.ttl.Unix())
 		}
 
 		writeErr = txn.SetEntry(e)

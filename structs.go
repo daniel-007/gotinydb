@@ -191,6 +191,8 @@ type (
 		chunkN              int
 		bin                 bool
 		isInsertion, isFile bool
+
+		ttl time.Time
 	}
 
 	// Archive defines the way archives are saved inside the zip file
