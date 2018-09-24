@@ -2,12 +2,10 @@ package gotinydb
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/chacha20poly1305"
 )
 
 func getIDsAsString(input []*idType) (ret []string) {
@@ -84,37 +82,4 @@ func (it IndexType) TypeName() string {
 	default:
 		return ""
 	}
-}
-
-func deriveKey(key [32]byte, id, seed []byte) (cipherKey, nonce []byte) {
-	hasher, _ := blake2b.New256(key[:])
-	hasher.Write(id)
-	cipherKey = hasher.Sum(nil)
-	hasher.Write(seed)
-	nonce = hasher.Sum(nil)
-	nonce = nonce[:chacha20poly1305.NonceSizeX]
-	return
-}
-
-func encrypt(key [32]byte, id, content []byte) []byte {
-	seed := make([]byte, chacha20poly1305.NonceSizeX)
-	rand.Read(seed)
-
-	cipherKey, nonce := deriveKey(key, id, seed)
-	aead, _ := chacha20poly1305.NewX(cipherKey)
-
-	return append(seed, aead.Seal(nil, nonce, content, nil)...)
-}
-
-func decrypt(key [32]byte, id, content []byte) ([]byte, error) {
-	seed := content[:chacha20poly1305.NonceSizeX]
-	cipherKey, nonce := deriveKey(key, id, seed)
-	aead, _ := chacha20poly1305.NewX(cipherKey)
-
-	decrypedContent, err := aead.Open(nil, nonce, content[chacha20poly1305.NonceSizeX:], nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return decrypedContent, nil
 }

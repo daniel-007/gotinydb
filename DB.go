@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/dgraph-io/badger"
 )
 
@@ -139,7 +140,7 @@ func (d *DB) ReadFile(id string, writer io.Writer) error {
 			}
 
 			var valAsBytes []byte
-			valAsBytes, err = decrypt(d.options.privateCryptoKey, it.Item().Key(), valAsEncryptedBytes)
+			valAsBytes, err = cipher.Decrypt(d.options.privateCryptoKey, it.Item().Key(), valAsEncryptedBytes)
 			if err != nil {
 				return err
 			}

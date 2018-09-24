@@ -109,6 +109,7 @@ const (
 const (
 	prefixData byte = iota
 	prefixIndexes
+	prefixBleve
 	prefixRefs
 	prefixFile
 )

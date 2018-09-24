@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/dgraph-io/badger"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -204,7 +205,7 @@ func (d *DB) loadCollections() error {
 		}
 
 		var configAsBytes []byte
-		configAsBytes, err = decrypt(d.options.CryptoKey, item.Key(), configAsBytesEncrypted)
+		configAsBytes, err = cipher.Decrypt(d.options.CryptoKey, item.Key(), configAsBytesEncrypted)
 		if err != nil {
 			return err
 		}
@@ -282,7 +283,7 @@ func (d *DB) saveCollections() error {
 
 		e := &badger.Entry{
 			Key:   configID,
-			Value: encrypt(d.options.CryptoKey, configID, dbToSaveAsBytes),
+			Value: cipher.Encrypt(d.options.CryptoKey, configID, dbToSaveAsBytes),
 		}
 
 		return txn.SetEntry(e)
@@ -342,7 +343,7 @@ func (d *DB) insertOrDeleteFileChunks(ctx context.Context, txn *badger.Txn, wtEl
 		storeID := d.buildFilePrefix(wtElem.id, wtElem.chunkN)
 		e := &badger.Entry{
 			Key:   storeID,
-			Value: encrypt(d.options.privateCryptoKey, storeID, wtElem.contentAsBytes),
+			Value: cipher.Encrypt(d.options.privateCryptoKey, storeID, wtElem.contentAsBytes),
 		}
 		return txn.SetEntry(e)
 	}
