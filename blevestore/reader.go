@@ -25,28 +25,28 @@ type Reader struct {
 	indexPrefixID []byte
 }
 
-func (r *Reader) Get(key []byte) ([]byte, error) {
-	var rv []byte
-
+func (r *Reader) get(key []byte) ([]byte, error) {
 	item, err := r.txn.Get(r.store.buildID(key))
 	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	_, err = item.ValueCopy(rv)
+	var rv []byte
+	rv, err = item.ValueCopy(rv)
 	return rv, err
 }
+func (r *Reader) Get(key []byte) (ret []byte, err error) {
+	return r.get(key)
+}
 
-func (r *Reader) MultiGet(keys [][]byte) ([][]byte, error) {
-	rvs := make([][]byte, len(keys))
+func (r *Reader) MultiGet(keys [][]byte) (rvs [][]byte, err error) {
+	rvs = make([][]byte, len(keys))
 
 	for i, key := range keys {
-		item, err := r.txn.Get(r.store.buildID(key))
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = item.ValueCopy(rvs[i])
+		rvs[i], err = r.get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -56,12 +56,11 @@ func (r *Reader) MultiGet(keys [][]byte) ([][]byte, error) {
 }
 
 func (r *Reader) iterator() *Iterator {
-	txn := r.store.db.NewTransaction(false)
-	iter := txn.NewIterator(badger.DefaultIteratorOptions)
+	iter := r.txn.NewIterator(badger.DefaultIteratorOptions)
 
 	rv := &Iterator{
 		store:    r.store,
-		txn:      txn,
+		txn:      r.txn,
 		iterator: iter,
 	}
 
@@ -85,6 +84,5 @@ func (r *Reader) RangeIterator(start, end []byte) store.KVIterator {
 }
 
 func (r *Reader) Close() error {
-	r.txn.Discard()
 	return nil
 }
