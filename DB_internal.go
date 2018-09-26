@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/alexandrestein/gotinydb/cipher"
@@ -162,19 +163,17 @@ func (d *DB) writeOneTransaction(ctx context.Context, txn *badger.Txn, wtElem *w
 		}
 
 		// Starts the indexing process
-		if !wtElem.bin {
-			if len(wtElem.collection.indexes) > 0 {
-				return wtElem.collection.putIntoIndexes(ctx, txn, wtElem)
-			}
-		}
-		return wtElem.collection.cleanRefs(ctx, txn, wtElem.id)
+		return wtElem.collection.putIntoIndexes(ctx, txn, wtElem)
 	}
+
 	// Else is because it's a deletation
 	err := wtElem.collection.insertOrDeleteStore(ctx, txn, false, wtElem)
 	if err != nil {
 		return err
 	}
-	return wtElem.collection.cleanRefs(ctx, txn, wtElem.id)
+
+	fmt.Println("clean index")
+	return nil
 }
 
 func (d *DB) writeMultipleTransaction(ctx context.Context, txn *badger.Txn, wt *writeTransaction) error {
@@ -233,21 +232,7 @@ func (d *DB) loadCollections() error {
 			newCol.writeTransactionChan = d.writeTransactionChan
 			newCol.ctx = d.ctx
 			newCol.options = d.options
-			for _, tmpIndex := range savedCol.Indexes {
-				i := new(indexType)
-
-				i.Name = tmpIndex.Name
-				i.Selector = tmpIndex.Selector
-				i.Type = tmpIndex.Type
-
-				i.options = d.options
-				i.getTx = d.badgerDB.NewTransaction
-				i.getIDBuilder = func(id []byte) []byte {
-					return newCol.buildIDWhitPrefixIndex([]byte(i.Name), id)
-				}
-
-				newCol.indexes = append(newCol.indexes, i)
-			}
+			fmt.Println("Need to take care of the index")
 
 			d.collections = append(d.collections, newCol)
 		}
@@ -270,7 +255,7 @@ func (d *DB) saveCollections() error {
 			colToSave := new(collectionExport)
 			colToSave.Name = col.name
 			colToSave.Prefix = col.prefix
-			colToSave.Indexes = col.indexes
+			fmt.Println("take care of the index")
 
 			dbToSave.Collections = append(dbToSave.Collections, colToSave)
 		}

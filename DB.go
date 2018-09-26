@@ -70,9 +70,7 @@ func (d *DB) SetOptions(options *Options) error {
 	// Apply the configuration to all collections index stores
 	for _, col := range d.collections {
 		col.options = options
-		for _, index := range col.indexes {
-			index.options = options
-		}
+		fmt.Println("need to take care of the index")
 	}
 	return nil
 }

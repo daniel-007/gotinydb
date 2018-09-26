@@ -24,19 +24,12 @@ func newTransactionElement(id string, content interface{}, isInsertion bool, col
 		return
 	}
 
-	if bytes, ok := content.([]byte); ok {
-		wtElem.bin = true
-		wtElem.contentAsBytes = bytes
+	jsonBytes, marshalErr := json.Marshal(content)
+	if marshalErr != nil {
+		return nil
 	}
 
-	if !wtElem.bin {
-		jsonBytes, marshalErr := json.Marshal(content)
-		if marshalErr != nil {
-			return nil
-		}
-
-		wtElem.contentAsBytes = jsonBytes
-	}
+	wtElem.contentAsBytes = jsonBytes
 
 	return
 }
@@ -68,18 +61,4 @@ func buildSelectorHash(selector []string) uint16 {
 
 	hash := binary.BigEndian.Uint16(hasher.Sum(nil))
 	return hash
-}
-
-// TypeName return the name of the type as a string
-func (it IndexType) TypeName() string {
-	switch it {
-	case StringIndex:
-		return "StringIndex"
-	case IntIndex:
-		return "IntIndex"
-	case TimeIndex:
-		return "TimeIndex"
-	default:
-		return ""
-	}
 }
