@@ -52,61 +52,61 @@ func cleanup(t *testing.T, s store.KVStore) {
 	}
 }
 
-func TestBoltDBKVCrud(t *testing.T) {
+func TestBadgerDBKVCrud(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestKVCrud(t, s)
 }
 
-func TestBoltDBReaderIsolation(t *testing.T) {
+func TestBadgerDBReaderIsolation(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestReaderIsolation(t, s)
 }
 
-func TestBoltDBReaderOwnsGetBytes(t *testing.T) {
+func TestBadgerDBReaderOwnsGetBytes(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestReaderOwnsGetBytes(t, s)
 }
 
-func TestBoltDBWriterOwnsBytes(t *testing.T) {
+func TestBadgerDBWriterOwnsBytes(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestWriterOwnsBytes(t, s)
 }
 
-func TestBoltDBPrefixIterator(t *testing.T) {
+func TestBadgerDBPrefixIterator(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestPrefixIterator(t, s)
 }
 
-func TestBoltDBPrefixIteratorSeek(t *testing.T) {
+func TestBadgerDBPrefixIteratorSeek(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestPrefixIteratorSeek(t, s)
 }
 
-func TestBoltDBRangeIterator(t *testing.T) {
+func TestBadgerDBRangeIterator(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestRangeIterator(t, s)
 }
 
-func TestBoltDBRangeIteratorSeek(t *testing.T) {
+func TestBadgerDBRangeIteratorSeek(t *testing.T) {
 	s := open(t, nil)
 	defer cleanup(t, s)
 	test.CommonTestRangeIteratorSeek(t, s)
 }
 
-func TestBoltDBMerge(t *testing.T) {
+func TestBadgerDBMerge(t *testing.T) {
 	s := open(t, &test.TestMergeCounter{})
 	defer cleanup(t, s)
 	test.CommonTestMerge(t, s)
 }
 
-func TestBoltDBConfig(t *testing.T) {
+func TestBadgerDBConfig(t *testing.T) {
 	path := "test"
 	defer os.RemoveAll(path)
 	os.RemoveAll(path)
