@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blevesearch/bleve"
 	"github.com/dgraph-io/badger"
 	"golang.org/x/crypto/blake2b"
 )
@@ -83,7 +84,11 @@ func TestDB_Use(t *testing.T) {
 			return
 		}
 
-		c.SetIndex("email", StringIndex, "email")
+		err = c.SetIndex("all", bleve.NewIndexMapping())
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
 		err = c.Put(testID, testContent)
 		if err != nil {
@@ -111,14 +116,36 @@ func TestDB_Use(t *testing.T) {
 			}
 
 			retrievedUser = new(User)
-			var response *Response
-			response, err = c.Query(c.NewQuery().SetFilter(NewEqualFilter(testContent.Email, "email")))
+
+			var bleveIndex bleve.Index
+			bleveIndex, err = c.GetIndex("all")
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
-			response.One(retrievedUser)
+			query := bleve.NewQueryStringQuery(testContent.Email)
+			searchRequest := bleve.NewSearchRequest(query)
+			searchResult, _ := bleveIndex.Search(searchRequest)
+
+			if searchResult.Hits.Len() != 1 {
+				t.Errorf("expected 1 result but have %d", searchResult.Hits.Len())
+				return
+			}
+			_, err = c.Get(searchResult.Hits[0].ID, retrievedUser)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			// var response *Response
+			// response, err = c.Query(c.NewQuery().SetFilter(NewEqualFilter(testContent.Email, "email")))
+			// if err != nil {
+			// 	t.Error(err)
+			// 	return
+			// }
+
+			// response.One(retrievedUser)
 
 			if !reflect.DeepEqual(testContent, retrievedUser) {
 				t.Errorf("both users are not equal but should\n\t%v\n\t%v", testContent, retrievedUser)
@@ -154,15 +181,37 @@ func TestDB_Use(t *testing.T) {
 		}
 
 		retrievedUser = new(User)
-		var response *Response
-		response, err = c.Query(c.NewQuery().SetFilter(NewEqualFilter(testContent.Email, "email")))
-		// _, err = c.Get(testID, retrievedUser)
+
+		var bleveIndex bleve.Index
+		bleveIndex, err = c.GetIndex("all")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		response.One(retrievedUser)
+		query := bleve.NewQueryStringQuery(testContent.Email)
+		searchRequest := bleve.NewSearchRequest(query)
+		searchResult, _ := bleveIndex.Search(searchRequest)
+
+		if searchResult.Hits.Len() != 1 {
+			t.Errorf("expected 1 result but have %d", searchResult.Hits.Len())
+			return
+		}
+		_, err = c.Get(searchResult.Hits[0].ID, retrievedUser)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		// var response *Response
+		// response, err = c.Query(c.NewQuery().SetFilter(NewEqualFilter(testContent.Email, "email")))
+		// _, err = c.Get(testID, retrievedUser)
+		// if err != nil {
+		// 	t.Error(err)
+		// 	return
+		// }
+
+		// response.One(retrievedUser)
 
 		if !reflect.DeepEqual(testContent, retrievedUser) {
 			t.Errorf("both users are not equal but should\n\t%v\n\t%v", testContent, retrievedUser)
@@ -195,7 +244,7 @@ func TestDB_SetOptions(t *testing.T) {
 	c.Put(testUser.ID, testUser)
 
 	// To test index option update
-	c.SetIndex("test", StringIndex, "nil")
+	c.SetIndex("test", bleve.NewIndexMapping())
 
 	cryptoKey := [32]byte{}
 	rand.Read(cryptoKey[:])
@@ -293,8 +342,16 @@ func TestDB_DeleteCollection(t *testing.T) {
 			return
 		}
 
-		c.SetIndex("email", StringIndex, "email")
-		c.SetIndex("age", IntIndex, "Age")
+		err = c.SetIndex("index 1", bleve.NewIndexMapping())
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = c.SetIndex("index 2", bleve.NewIndexMapping())
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
 		err = db.DeleteCollection(name)
 		if err != nil {
@@ -320,8 +377,8 @@ func TestDB_DeleteCollection(t *testing.T) {
 			return
 		}
 
-		c.SetIndex("email", StringIndex, "email")
-		c.SetIndex("age", IntIndex, "Age")
+		c.SetIndex("index 1", bleve.NewIndexMapping())
+		c.SetIndex("index 2", bleve.NewIndexMapping())
 
 		for _, user := range unmarshalDataset(dataset1) {
 			err = c.Put(user.ID, user)
@@ -402,9 +459,8 @@ func TestDB_Backup_And_Load(t *testing.T) {
 	}
 
 	addIndexesFunc := func(c *Collection) {
-		c.SetIndex("email", StringIndex, "email")
-		c.SetIndex("age", UIntIndex, "Age")
-		c.SetIndex("city", StringIndex, "Address", "city")
+		c.SetIndex("index 1", bleve.NewIndexMapping())
+		c.SetIndex("index 2", bleve.NewIndexMapping())
 	}
 	addIndexesFunc(baseCols[0])
 	addIndexesFunc(baseCols[1])
@@ -530,76 +586,78 @@ func backupAndRestorSimpleGetValues(ids []string, c1, c2, c3, rc1, rc2, rc3 *Col
 }
 
 func backupAndRestorQueries(ids []string, c1, c2, c3, rc1, rc2, rc3 *Collection) (err error) {
-	user := &User{}
-	gettedUser := &User{}
-	var response *Response
+	return fmt.Errorf("test restor")
 
-	testFunc := func(id string, baseCol, restoredCol *Collection) (err error) {
-		baseCol.Get(id, user)
+	// user := &User{}
+	// gettedUser := &User{}
+	// var response *Response
 
-		q := restoredCol.NewQuery().SetFilter(
-			NewEqualFilter(user.Email, "email"),
-		).SetLimits(1, 0)
+	// testFunc := func(id string, baseCol, restoredCol *Collection) (err error) {
+	// 	baseCol.Get(id, user)
 
-		response, err = restoredCol.Query(q)
-		if err != nil {
-			return err
-		}
-		response.One(gettedUser)
+	// 	q := restoredCol.NewQuery().SetFilter(
+	// 		NewEqualFilter(user.Email, "email"),
+	// 	).SetLimits(1, 0)
 
-		if !reflect.DeepEqual(user, gettedUser) {
-			return fmt.Errorf("user in original database and in restored database are not equal\n\t%v\n\t%v", user, gettedUser)
-		}
+	// 	response, err = restoredCol.Query(q)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	response.One(gettedUser)
 
-		q = restoredCol.NewQuery().SetFilter(
-			NewEqualFilter(user.Age, "Age"),
-		).SetLimits(1, 0)
+	// 	if !reflect.DeepEqual(user, gettedUser) {
+	// 		return fmt.Errorf("user in original database and in restored database are not equal\n\t%v\n\t%v", user, gettedUser)
+	// 	}
 
-		gettedUser = new(User)
-		response, err = restoredCol.Query(q)
-		if err != nil {
-			return err
-		}
-		response.One(gettedUser)
+	// 	q = restoredCol.NewQuery().SetFilter(
+	// 		NewEqualFilter(user.Age, "Age"),
+	// 	).SetLimits(1, 0)
 
-		if user.Age != gettedUser.Age {
-			return fmt.Errorf("query did not returned value with the same age:\n\t%v\n\t%v", user, gettedUser)
-		}
+	// 	gettedUser = new(User)
+	// 	response, err = restoredCol.Query(q)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	response.One(gettedUser)
 
-		q = restoredCol.NewQuery().SetFilter(
-			NewEqualFilter(user.Address.City, "Address", "city"),
-		).SetLimits(1, 0)
+	// 	if user.Age != gettedUser.Age {
+	// 		return fmt.Errorf("query did not returned value with the same age:\n\t%v\n\t%v", user, gettedUser)
+	// 	}
 
-		gettedUser = new(User)
-		response, err = restoredCol.Query(q)
-		if err != nil {
-			return err
-		}
-		response.One(gettedUser)
+	// 	q = restoredCol.NewQuery().SetFilter(
+	// 		NewEqualFilter(user.Address.City, "Address", "city"),
+	// 	).SetLimits(1, 0)
 
-		if user.Address.City != gettedUser.Address.City {
-			return fmt.Errorf("query did not returned value with the same city:\n\t%v\n\t%v", user, gettedUser)
-		}
+	// 	gettedUser = new(User)
+	// 	response, err = restoredCol.Query(q)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	response.One(gettedUser)
 
-		return nil
-	}
+	// 	if user.Address.City != gettedUser.Address.City {
+	// 		return fmt.Errorf("query did not returned value with the same city:\n\t%v\n\t%v", user, gettedUser)
+	// 	}
 
-	for _, id := range ids {
-		err = testFunc(id, c1, rc1)
-		if err != nil {
-			return err
-		}
-		err = testFunc(id, c2, rc2)
-		if err != nil {
-			return err
-		}
-		err = testFunc(id, c3, rc3)
-		if err != nil {
-			return err
-		}
-	}
+	// 	return nil
+	// }
 
-	return nil
+	// for _, id := range ids {
+	// 	err = testFunc(id, c1, rc1)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	err = testFunc(id, c2, rc2)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	err = testFunc(id, c3, rc3)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// return nil
 }
 
 func TestFiles(t *testing.T) {

@@ -2,10 +2,7 @@ package gotinydb
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
-
-	"golang.org/x/crypto/blake2b"
 )
 
 func getIDsAsString(input []*idType) (ret []string) {
@@ -52,13 +49,13 @@ func (wt *writeTransaction) addTransaction(trElement ...*writeTransactionElement
 	wt.transactions = append(wt.transactions, trElement...)
 }
 
-// buildSelectorHash returns a string hash of the selector
-func buildSelectorHash(selector []string) uint16 {
-	hasher, _ := blake2b.New256(nil)
-	for _, filedName := range selector {
-		hasher.Write([]byte(filedName))
-	}
+// // buildSelectorHash returns a string hash of the selector
+// func buildSelectorHash(selector []string) uint16 {
+// 	hasher, _ := blake2b.New256(nil)
+// 	for _, filedName := range selector {
+// 		hasher.Write([]byte(filedName))
+// 	}
 
-	hash := binary.BigEndian.Uint16(hasher.Sum(nil))
-	return hash
-}
+// 	hash := binary.BigEndian.Uint16(hasher.Sum(nil))
+// 	return hash
+// }

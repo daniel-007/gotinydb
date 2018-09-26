@@ -2,12 +2,13 @@ package gotinydb
 
 import (
 	"context"
-	"crypto/rand"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/blevesearch/bleve"
 )
 
 func TestCollection_PutGetAndDelete(t *testing.T) {
@@ -29,12 +30,12 @@ func TestCollection_PutGetAndDelete(t *testing.T) {
 		return
 	}
 
-	err = c.SetIndex("email", StringIndex, "email")
+	err = c.SetIndex("all", bleve.NewIndexMapping())
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	err = c.SetIndex("email", StringIndex, "email")
+	err = c.SetIndex("all", bleve.NewIndexMapping())
 	if err == nil {
 		t.Errorf("must return error")
 		return
@@ -72,96 +73,31 @@ func TestCollection_PutGetAndDelete(t *testing.T) {
 		return
 	}
 
-	_, err = c.Query(
-		c.NewQuery().SetFilter(
-			NewEqualFilter("clement-38@thurmond.com", "email"),
-		),
-	)
-	if err != ErrNotFound {
-		t.Errorf("this must return an not found error")
+	// _, err = c.Query(
+	// 	c.NewQuery().SetFilter(
+	// 		NewEqualFilter("clement-38@thurmond.com", "email"),
+	// 	),
+	// )
+
+	var bleveIndex bleve.Index
+	bleveIndex, err = c.GetIndex("all")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	query := bleve.NewQueryStringQuery("clement-38@thurmond.com")
+	searchRequest := bleve.NewSearchRequest(query)
+	searchResult, _ := bleveIndex.Search(searchRequest)
+
+	if searchResult.Hits.Len() > 0 {
+		t.Errorf("this must no ID")
 		return
 	}
 
 	err = db.Close()
 	if err != nil {
 		t.Error(err)
-	}
-}
-
-func TestCollection_PutGetAndDeleteBin(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
-	defer cancel()
-
-	testPath := os.TempDir() + "/" + "binTests"
-	defer os.RemoveAll(testPath)
-
-	db, err := Open(ctx, NewDefaultOptions(testPath))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	c, err := db.Use("bins collection")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	err = c.SetIndex("email", StringIndex, "email")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	contentID := "id"
-	content := make([]byte, 1024)
-	rand.Read(content)
-
-	err = c.Put(contentID, content)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	retBytes, _ := c.Get(contentID, nil)
-
-	if !reflect.DeepEqual(retBytes, content) {
-		t.Errorf("the bin content are not equal")
-		return
-	}
-
-	// Test to update with a index element
-	c.Put(contentID, testUser)
-	userFromQuery := new(User)
-	response, _ := c.Query(c.NewQuery().SetFilter(
-		NewEqualFilter(testUser.Email, "email"),
-	))
-	response.One(userFromQuery)
-	if !reflect.DeepEqual(userFromQuery, testUser) {
-		t.Errorf("save user is not equal")
-		return
-	}
-
-	// Add an an other bin
-	rand.Read(content)
-	err = c.Put(contentID, content)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	_, err = c.Query(c.NewQuery().SetFilter(
-		NewEqualFilter(testUser.Email, "email"),
-	))
-	if err != ErrNotFound {
-		t.Errorf("the element is not present any more")
-		return
-	}
-
-	retBytes, _ = c.Get(contentID, nil)
-	if !reflect.DeepEqual(retBytes, content) {
-		t.Errorf("the bin content are not equal")
-		return
 	}
 }
 
@@ -184,7 +120,7 @@ func TestCollection_PutMulti(t *testing.T) {
 		return
 	}
 
-	err = c.SetIndex("email", StringIndex, "email")
+	err = c.SetIndex("all", bleve.NewIndexMapping())
 	if err != nil {
 		t.Error(err)
 		return
@@ -284,8 +220,8 @@ func TestCollection_DeleteIndex(t *testing.T) {
 		return
 	}
 
-	indexName := "email"
-	err = c.SetIndex(indexName, StringIndex, "email")
+	indexName := "all"
+	err = c.SetIndex(indexName, bleve.NewIndexMapping())
 	if err != nil {
 		t.Error(err)
 		return
@@ -480,21 +416,21 @@ func TestCollection_GetIndexesInfo(t *testing.T) {
 		return
 	}
 
-	c.SetIndex("email", StringIndex, "email")
-	c.SetIndex("age", IntIndex, "Age")
-	c.SetIndex("last connection", TimeIndex, "history", "lastConnection")
+	c.SetIndex("all", bleve.NewIndexMapping())
 
-	expectedIndexInfos := []*IndexInfo{
-		{Name: "email", Selector: []string{"email"}, Type: StringIndex},
-		{Name: "age", Selector: []string{"Age"}, Type: IntIndex},
-		{Name: "last connection", Selector: []string{"history", "lastConnection"}, Type: TimeIndex},
-	}
+	t.Error("make something for the index info")
 
-	infos := c.GetIndexesInfo()
-	for i, info := range infos {
-		if !reflect.DeepEqual(info, expectedIndexInfos[i]) {
-			t.Errorf("returned index info is not what is expected\n\t%v\n\t%v", info, expectedIndexInfos[i])
-			return
-		}
-	}
+	// expectedIndexInfos := []*IndexInfo{
+	// 	{Name: "email", Selector: []string{"email"}, Type: StringIndex},
+	// 	{Name: "age", Selector: []string{"Age"}, Type: IntIndex},
+	// 	{Name: "last connection", Selector: []string{"history", "lastConnection"}, Type: TimeIndex},
+	// }
+
+	// infos := c.GetIndexesInfo()
+	// for i, info := range infos {
+	// 	if !reflect.DeepEqual(info, expectedIndexInfos[i]) {
+	// 		t.Errorf("returned index info is not what is expected\n\t%v\n\t%v", info, expectedIndexInfos[i])
+	// 		return
+	// 	}
+	// }
 }
