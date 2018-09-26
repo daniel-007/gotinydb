@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/blevesearch/bleve"
 	"github.com/dgraph-io/badger"
 )
 
@@ -15,7 +16,7 @@ type (
 		badgerDB    *badger.DB
 		collections []*Collection
 
-		// freePrefix defines the list of prefix which can be used for a new collection
+		// freePrefix defines the list of prefix which can be used for a new collections
 		freePrefix []byte
 
 		writeTransactionChan chan *writeTransaction
@@ -63,6 +64,11 @@ type (
 		// prefix defines the prefix needed to found the collection into the store
 		prefix byte
 
+		// freePrefix defines the list of prefix which can be used for a new indexes
+		freePrefix []byte
+
+		indexes []*index
+
 		options *Options
 
 		store *badger.DB
@@ -72,6 +78,14 @@ type (
 		ctx context.Context
 
 		saveCollections func() error
+	}
+
+	index struct {
+		Name             string
+		Prefix           byte
+		collectionPrefix byte
+
+		index bleve.Index
 	}
 
 	// idType is a type to order IDs during query to be compatible with the tree query

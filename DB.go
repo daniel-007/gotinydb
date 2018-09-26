@@ -216,6 +216,16 @@ func (d *DB) Close() error {
 		err = d.badgerDB.Close()
 	}
 
+	// Close indexes
+	for _, c := range d.collections {
+		for _, i := range c.indexes {
+			if i.index != nil {
+				i.index.Close()
+				i.index = nil
+			}
+		}
+	}
+
 	d.options.Path = ""
 	d.badgerDB = nil
 	d.collections = nil
@@ -278,7 +288,7 @@ func (d *DB) DeleteCollection(collectionName string) error {
 	// Put the prefix again into the free prefix list
 	d.freePrefix = append(d.freePrefix, c.prefix)
 
-	return nil
+	return d.saveCollections()
 }
 
 // Backup run a badger.DB.Backup

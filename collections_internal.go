@@ -1,12 +1,10 @@
 package gotinydb
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/alexandrestein/gotinydb/cipher"
+	"github.com/blevesearch/bleve"
 	"github.com/dgraph-io/badger"
 )
 
@@ -33,8 +31,14 @@ func (c *Collection) buildStoreID(id string) []byte {
 	return c.buildIDWhitPrefixData([]byte(id))
 }
 
-func (c *Collection) putIntoIndexes(ctx context.Context, txn *badger.Txn, writeTransaction *writeTransactionElement) error {
-	fmt.Println("put into index")
+func (c *Collection) putIntoIndexes(id string, data interface{}) error {
+	for _, i := range c.indexes {
+		err := i.index.Index(id, data)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -164,22 +168,7 @@ newLoop:
 			continue
 		}
 
-		var elem interface{}
-		decoder := json.NewDecoder(bytes.NewBuffer(savedElement.contentAsBytes))
-		decoder.UseNumber()
-
-		if jsonErr := decoder.Decode(&elem); jsonErr != nil {
-			return jsonErr
-		}
-
-		m := elem.(map[string]interface{})
-
-		ctx, cancel := context.WithTimeout(c.ctx, c.options.TransactionTimeOut)
-		defer cancel()
-
-		trElement := newTransactionElement(savedElement.GetID(), m, true, c)
-
-		err := c.putIntoIndexes(ctx, txn, trElement)
+		err := c.putIntoIndexes(savedElement.GetID(), savedElement.contentAsBytes)
 		if err != nil {
 			return err
 		}
@@ -202,3 +191,44 @@ func (c *Collection) isRunning() bool {
 
 	return true
 }
+
+func (c *Collection) buildKvConfig(indexPrefix byte) map[string]interface{} {
+	collectionAndIndexPrefix := []byte{c.prefix, indexPrefix}
+	return map[string]interface{}{"path": "test", "prefix": collectionAndIndexPrefix, "db": c.store, "key": c.options.privateCryptoKey}
+}
+
+func (c *Collection) getIndex(name string) (*index, error) {
+	var index *index
+
+	// Loop all indexes to found the given index
+	found := false
+	for _, i := range c.indexes {
+		if i.Name == name {
+			index = i
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, ErrIndexNotFound
+	}
+
+	// If index is already loaded
+	if index.index != nil {
+		return index, nil
+	}
+
+	// Load the index
+	bleveIndex, err := bleve.OpenUsing(index.Name, c.buildKvConfig(index.Prefix))
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the index interface into the internal index type
+	index.index = bleveIndex
+	index.collectionPrefix = c.prefix
+
+	return index, nil
+}
+

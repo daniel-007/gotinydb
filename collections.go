@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/alexandrestein/gotinydb/blevestore"
 	"github.com/alexandrestein/gotinydb/cipher"
+	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/index/upsidedown"
+	"github.com/blevesearch/bleve/mapping"
 	"github.com/dgraph-io/badger"
 )
 
@@ -28,6 +32,7 @@ func (c *Collection) Put(id string, content interface{}) error {
 
 	// Run the insertion
 	c.writeTransactionChan <- tr
+
 	// And wait for the end of the insertion
 	return <-tr.responseChan
 }
@@ -205,5 +210,83 @@ func (c *Collection) Rollback(id string, previousVersion uint) (timestamp uint64
 	}
 
 	return timestamp, c.Put(id, contentAsInterface)
+}
+
+func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) error {
+	for _, i := range c.indexes {
+		if i.Name == name {
+			return ErrIndexNameAllreadyExists
+		}
+	}
+
+	i := new(index)
+	i.Name = name
+
+	// Set the prefix
+	i.Prefix = c.freePrefix[0]
+
+	// Remove the prefix from the list of free prefixes
+	c.freePrefix = append(c.freePrefix[:0], c.freePrefix[1:]...)
+
+	kvConfig := c.buildKvConfig(i.Prefix)
+	bleveIndex, err := bleve.NewUsing(name, bleveMapping, upsidedown.Name, blevestore.Name, kvConfig)
+	if err != nil {
+		return err
+	}
+
+	bleveIndex.Close()
+
+	c.indexes = append(c.indexes, i)
+
+	return c.saveCollections()
+}
+
+func (c *Collection) GetIndex(name string) (bleve.Index, error) {
+	index, err := c.getIndex(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return index.index, nil
+}
+
+func (c *Collection) DeleteIndex(name string) error {
+	var index *index
+	// Loop all indexes to found the given index
+	found := false
+	for j, i := range c.indexes {
+		if i.Name == name {
+			index = i
+			found = true
+
+			// Clean the slice of indexes
+			copy(c.indexes[j:], c.indexes[j+1:])
+			c.indexes[len(c.indexes)-1] = nil // or the zero value of T
+			c.indexes = c.indexes[:len(c.indexes)-1]
+			break
+		}
+	}
+
+	if !found {
+		return ErrIndexNotFound
+	}
+
+	return c.store.Update(func(txn *badger.Txn) error {
+		opt := badger.DefaultIteratorOptions
+		opt.PrefetchValues = false
+		iter := txn.NewIterator(opt)
+
+		for iter.Seek(index.buildPrefix()); iter.ValidForPrefix(index.buildPrefix()); iter.Next() {
+			item := iter.Item()
+
+			var key []byte
+			key = item.KeyCopy(key)
+			err := txn.Delete(key)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 

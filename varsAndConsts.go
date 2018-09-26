@@ -78,10 +78,10 @@ var (
 	ErrPutMultiWrongLen = fmt.Errorf("the IDs and content lists must have the same length")
 	// ErrNotFound defines error when the asked ID is not found
 	ErrNotFound = fmt.Errorf("not found")
-	// // ErrIndexNotFound is returned when no index match the query
-	// ErrIndexNotFound = fmt.Errorf("index not found")
-	// // ErrIndexNameAllreadyExists is returned when try to add an index but the same name is present in the list of indexes
-	// ErrIndexNameAllreadyExists = fmt.Errorf("index with same name exists")
+	// ErrIndexNotFound is returned when no index match the query
+	ErrIndexNotFound = fmt.Errorf("index not found")
+	// ErrIndexNameAllreadyExists is returned when try to add an index but the same name is present in the list of indexes
+	ErrIndexNameAllreadyExists = fmt.Errorf("index in this collection with same name exists")
 	// ErrEmptyID defines error when the given id is empty
 	ErrEmptyID = fmt.Errorf("empty ID")
 	// ErrTimeOut defines the error when the query is timed out

@@ -64,7 +64,13 @@ func (d *DB) initCollection(name string) (*Collection, error) {
 	// Remove the prefix from the list of free prefixes
 	d.freePrefix = append(d.freePrefix[:0], d.freePrefix[1:]...)
 
-	// Set the different values af the collection
+	// Fill up the list of possible prefixes for the future indexes
+	c.freePrefix = make([]byte, 256)
+	for i := 0; i <= 256; i++ {
+		c.freePrefix[i] = byte(i)
+	}
+
+	// Set the different attributes of the collection
 	c.store = d.badgerDB
 	c.writeTransactionChan = d.writeTransactionChan
 	c.ctx = d.ctx
@@ -163,7 +169,7 @@ func (d *DB) writeOneTransaction(ctx context.Context, txn *badger.Txn, wtElem *w
 		}
 
 		// Starts the indexing process
-		return wtElem.collection.putIntoIndexes(ctx, txn, wtElem)
+		return wtElem.collection.putIntoIndexes(wtElem.id, wtElem.contentInterface)
 	}
 
 	// Else is because it's a deletation
@@ -277,8 +283,9 @@ func (d *DB) saveCollections() error {
 
 func (d *DB) initDB() error {
 	d.freePrefix = make([]byte, 255)
+	// Start at one because the first slot is used to save the database configurations
 	for i := 1; i < 256; i++ {
-		d.freePrefix[i-1] = byte(i)
+		d.freePrefix[i] = byte(i)
 	}
 
 	newKey := [chacha20poly1305.KeySize]byte{}
