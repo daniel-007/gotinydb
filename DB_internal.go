@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/dgraph-io/badger"
+
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/alexandrestein/gotinydb/cipher"
 )
 
 func (d *DB) initBadger() error {
@@ -66,7 +68,7 @@ func (d *DB) initCollection(name string) (*Collection, error) {
 
 	// Fill up the list of possible prefixes for the future indexes
 	c.freePrefix = make([]byte, 256)
-	for i := 0; i <= 256; i++ {
+	for i := 0; i < 256; i++ {
 		c.freePrefix[i] = byte(i)
 	}
 
@@ -284,7 +286,7 @@ func (d *DB) saveCollections() error {
 func (d *DB) initDB() error {
 	d.freePrefix = make([]byte, 255)
 	// Start at one because the first slot is used to save the database configurations
-	for i := 1; i < 256; i++ {
+	for i := 1; i < 255; i++ {
 		d.freePrefix[i] = byte(i)
 	}
 

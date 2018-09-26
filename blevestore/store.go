@@ -28,6 +28,7 @@ type Store struct {
 }
 
 func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, error) {
+	fmt.Println("called")
 	path, ok := config["path"].(string)
 	if !ok {
 		return nil, fmt.Errorf("must specify path")

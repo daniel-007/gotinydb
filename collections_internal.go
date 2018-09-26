@@ -220,7 +220,7 @@ func (c *Collection) getIndex(name string) (*index, error) {
 	}
 
 	// Load the index
-	bleveIndex, err := bleve.OpenUsing(index.Name, c.buildKvConfig(index.Prefix))
+	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, c.buildKvConfig(index.Prefix))
 	if err != nil {
 		return nil, err
 	}

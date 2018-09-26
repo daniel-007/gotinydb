@@ -229,7 +229,7 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	c.freePrefix = append(c.freePrefix[:0], c.freePrefix[1:]...)
 
 	kvConfig := c.buildKvConfig(i.Prefix)
-	bleveIndex, err := bleve.NewUsing(name, bleveMapping, upsidedown.Name, blevestore.Name, kvConfig)
+	bleveIndex, err := bleve.NewUsing(c.options.Path+"/"+c.name+"/"+name, bleveMapping, upsidedown.Name, blevestore.Name, kvConfig)
 	if err != nil {
 		return err
 	}
