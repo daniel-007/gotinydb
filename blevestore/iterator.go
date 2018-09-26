@@ -18,6 +18,8 @@ import (
 	"bytes"
 
 	"github.com/dgraph-io/badger"
+
+	"github.com/alexandrestein/gotinydb/cipher"
 )
 
 type Iterator struct {
@@ -96,8 +98,13 @@ func (i *Iterator) Value() (val []byte) {
 		return
 	}
 
-	val = []byte{}
-	val, _ = i.iterator.Item().ValueCopy(val)
+	item := i.iterator.Item()
+
+	var encryptVal []byte
+	encryptVal, _ = item.ValueCopy(encryptVal)
+
+	val, _ = cipher.Decrypt(i.store.primaryEncryptionKey, item.Key(), encryptVal)
+
 	return
 }
 

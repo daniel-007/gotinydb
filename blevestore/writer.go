@@ -17,9 +17,10 @@ package blevestore
 import (
 	"fmt"
 
+	"github.com/blevesearch/bleve/index/store"
 	"github.com/dgraph-io/badger"
 
-	"github.com/blevesearch/bleve/index/store"
+	"github.com/alexandrestein/gotinydb/cipher"
 )
 
 type Writer struct {
@@ -72,20 +73,23 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		err = txn.Set(w.store.buildID(kb), mergedVal)
+		storeID := w.store.buildID(kb)
+		err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, mergedVal))
 		if err != nil {
 			return
 		}
 	}
 
 	for _, op := range emulatedBatch.Ops {
+		storeID := w.store.buildID(op.K)
+
 		if op.V != nil {
-			err = txn.Set(w.store.buildID(op.K), op.V)
+			err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, op.V))
 			if err != nil {
 				return
 			}
 		} else {
-			err = txn.Delete(w.store.buildID(op.K))
+			err = txn.Delete(storeID)
 			if err != nil {
 				return
 			}
