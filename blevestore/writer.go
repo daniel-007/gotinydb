@@ -56,15 +56,14 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		kb := []byte(k)
 
 		var item *badger.Item
+		existingVal := []byte{}
 		item, err = txn.Get(w.store.buildID(kb))
-		if err != nil {
-			return
-		}
-
-		var existingVal []byte
-		_, err = item.ValueCopy(existingVal)
-		if err != nil {
-			return
+		// If the KV pair exists the existing value is saved
+		if err == nil {
+			existingVal, err = item.ValueCopy(existingVal)
+			if err != nil {
+				return
+			}
 		}
 
 		mergedVal, fullMergeOk := w.store.mo.FullMerge(kb, existingVal, mergeOps)

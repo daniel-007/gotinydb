@@ -24,7 +24,7 @@ func (i *indexType) getIDsForOneValue(ctx context.Context, indexedValue []byte) 
 		return nil, err
 	}
 	var asEncryptedBytes []byte
-	asEncryptedBytes, err = asItem.Value()
+	asEncryptedBytes, err = asItem.ValueCopy(asEncryptedBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,18 @@ func (i *indexType) getIDsForRangeOfValues(ctx context.Context, filterValue, lim
 		return nil, ErrNotFound
 	}
 
-	firstIndexedValueAsBytes := iter.Item().Key()
-	firstIDsAsEncryptedBytes, err := iter.Item().Value()
+	item := iter.Item()
+
+	firstIndexedValueAsBytes := item.Key()
+
+	var firstIDsAsEncryptedBytes []byte
+	firstIDsAsEncryptedBytes, err = item.ValueCopy(firstIDsAsEncryptedBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	var firstIDsAsBytes []byte
-	firstIDsAsBytes, err = cipher.Decrypt(i.options.privateCryptoKey, iter.Item().Key(), firstIDsAsEncryptedBytes)
+	firstIDsAsBytes, err = cipher.Decrypt(i.options.privateCryptoKey, item.Key(), firstIDsAsEncryptedBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -90,13 +94,19 @@ func (i *indexType) getIDsForRangeOfValuesLoop(ctx context.Context, allIDs *idsT
 		if !iter.ValidForPrefix(prefix) {
 			break
 		}
-		indexedValuePlusPrefixes := iter.Item().Key()
-		idsAsEncryptedBytes, err := iter.Item().Value()
+
+		item := iter.Item()
+
+		indexedValuePlusPrefixes := item.Key()
+
+		var err error
+		var idsAsEncryptedBytes []byte
+		idsAsEncryptedBytes, err = item.ValueCopy(idsAsEncryptedBytes)
 		if err != nil {
 			return nil, err
 		}
 		var idsAsBytes []byte
-		idsAsBytes, err = cipher.Decrypt(i.options.privateCryptoKey, iter.Item().Key(), idsAsEncryptedBytes)
+		idsAsBytes, err = cipher.Decrypt(i.options.privateCryptoKey, item.Key(), idsAsEncryptedBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -180,17 +190,21 @@ func (i *indexType) queryExists(ctx context.Context, ids *idsType, filter *Filte
 	defer iter.Close()
 
 	for iter.Seek(prefixID); iter.ValidForPrefix(prefixID); iter.Next() {
-		asEncryptedBytes, err := iter.Item().Value()
+		item := iter.Item()
+
+		var err error
+		var asEncryptedBytes []byte
+		asEncryptedBytes, err = item.ValueCopy(asEncryptedBytes)
 		if err != nil {
 			return
 		}
 		var asBytes []byte
-		asBytes, err = cipher.Decrypt(i.options.privateCryptoKey, iter.Item().Key(), asEncryptedBytes)
+		asBytes, err = cipher.Decrypt(i.options.privateCryptoKey, item.Key(), asEncryptedBytes)
 		if err != nil {
 			return
 		}
 
-		tmpIDs, _ := newIDs(ctx, i.selectorHash(), iter.Item().Key()[len(prefixID):], asBytes)
+		tmpIDs, _ := newIDs(ctx, i.selectorHash(), item.Key()[len(prefixID):], asBytes)
 		ids.AddIDs(tmpIDs)
 
 		// Clean if to big
@@ -217,24 +231,28 @@ func (i *indexType) queryContains(ctx context.Context, ids *idsType, filter *Fil
 	defer iter.Close()
 
 	for iter.Seek(prefixID); iter.ValidForPrefix(prefixID); iter.Next() {
-		asEncryptedBytes, err := iter.Item().Value()
+		item := iter.Item()
+
+		var err error
+		var asEncryptedBytes []byte
+		asEncryptedBytes, err = item.ValueCopy(asEncryptedBytes)
 		if err != nil {
 			return
 		}
 		var asBytes []byte
-		asBytes, err = cipher.Decrypt(i.options.privateCryptoKey, iter.Item().Key(), asEncryptedBytes)
+		asBytes, err = cipher.Decrypt(i.options.privateCryptoKey, item.Key(), asEncryptedBytes)
 		if err != nil {
 			return
 		}
 
-		tmpIDs, _ := newIDs(ctx, i.selectorHash(), iter.Item().Key()[len(prefixID):], asBytes)
+		tmpIDs, _ := newIDs(ctx, i.selectorHash(), item.Key()[len(prefixID):], asBytes)
 
 		if len(tmpIDs.IDs) <= 0 {
 			continue
 		}
 
 		// Check if the filter value as byte is inside the indexed value
-		if bytes.Contains(iter.Item().Key()[len(prefixID):], filter.values[0].Bytes()) {
+		if bytes.Contains(item.Key()[len(prefixID):], filter.values[0].Bytes()) {
 			// If yes all the related ids containe also the filter value
 			ids.AddIDs(tmpIDs)
 		}

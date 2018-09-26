@@ -287,13 +287,15 @@ func (c *Collection) Rollback(id string, previousVersion uint) (timestamp uint64
 		// Seek to the wanted key
 		// Loop to the version
 		for iterator.Seek(c.buildStoreID(id)); iterator.Valid(); iterator.Next() {
-			if !reflect.DeepEqual(c.buildStoreID(id), iterator.Item().Key()) {
+			item := iterator.Item()
+
+			if !reflect.DeepEqual(c.buildStoreID(id), item.Key()) {
 				return ErrRollbackVersionNotFound
 			} else if previousVersion == 0 {
-				item := iterator.Item()
+				item := item
 
 				var asEncryptedBytes []byte
-				asEncryptedBytes, err = item.Value()
+				asEncryptedBytes, err = item.ValueCopy(asEncryptedBytes)
 				if err != nil {
 					return err
 				}

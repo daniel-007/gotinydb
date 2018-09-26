@@ -60,12 +60,12 @@ func (r *Reader) iterator() *Iterator {
 
 	rv := &Iterator{
 		store:    r.store,
-		txn:      r.txn,
 		iterator: iter,
 	}
 
 	return rv
 }
+
 func (r *Reader) PrefixIterator(prefix []byte) store.KVIterator {
 	rv := r.iterator()
 	rv.prefix = prefix

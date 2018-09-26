@@ -22,7 +22,6 @@ import (
 
 type Iterator struct {
 	store    *Store
-	txn      *badger.Txn
 	iterator *badger.Iterator
 	prefix   []byte
 	start    []byte
@@ -77,26 +76,41 @@ func (i *Iterator) Current() (key []byte, val []byte, valid bool) {
 	return
 }
 
-func (i *Iterator) Key() (key []byte) {
+func (i *Iterator) key() (key []byte) {
 	key = []byte{}
 	key = i.iterator.Item().KeyCopy(key)
 	key = key[i.store.indexPrefixIDLen:]
+
 	return
 }
 
+func (i *Iterator) Key() (key []byte) {
+	if !i.Valid() {
+		return
+	}
+	return i.key()
+}
+
 func (i *Iterator) Value() (val []byte) {
+	if !i.Valid() {
+		return
+	}
+
 	val = []byte{}
 	val, _ = i.iterator.Item().ValueCopy(val)
 	return
 }
 
 func (i *Iterator) Valid() bool {
+	if !i.iterator.Valid() {
+		return false
+	}
 	if i.prefix != nil {
 		return i.iterator.ValidForPrefix(i.store.buildID(i.prefix))
 	} else if i.end != nil {
-		return bytes.Compare(i.Key(), i.end) < 0
+		return bytes.Compare(i.key(), i.end) < 0
 	}
-	return i.iterator.ValidForPrefix(i.store.buildID(i.prefix))
+	return i.iterator.ValidForPrefix(i.store.buildID(nil))
 }
 
 func (i *Iterator) Close() error {

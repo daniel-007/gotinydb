@@ -97,9 +97,11 @@ func (bs *Store) CompactWithBatchSize(batchSize int) error {
 
 			// for k, v := iter.Seek(bs.buildID(prefix)); iter.ValidForPrefix(prefix); k, v = iter.Next() {
 			for iter.Seek(bs.buildID(prefix)); iter.ValidForPrefix(prefix); iter.Next() {
+				item := iter.Item()
+
 				var k, v []byte
-				iter.Item().KeyCopy(k)
-				_, err := iter.Item().ValueCopy(v)
+				item.KeyCopy(k)
+				_, err := item.ValueCopy(v)
 				if err != nil {
 					return err
 				}

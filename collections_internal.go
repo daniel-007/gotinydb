@@ -70,7 +70,7 @@ func (c *Collection) putIntoIndexes(ctx context.Context, txn *badger.Txn, writeT
 					// If the list of ids is present for this index field value,
 					// this save the actual status of the given filed value.
 					var idsAsBytesEncrypted []byte
-					idsAsBytesEncrypted, err = idsAsItem.Value()
+					idsAsBytesEncrypted, err = idsAsItem.ValueCopy(idsAsBytesEncrypted)
 					if err != nil {
 						return err
 					}
@@ -126,7 +126,7 @@ func (c *Collection) cleanRefs(ctx context.Context, txn *badger.Txn, idAsString 
 		}
 	} else {
 		var refsAsEncryptedBytes []byte
-		refsAsEncryptedBytes, err = refsAsItem.Value()
+		refsAsEncryptedBytes, err = refsAsItem.ValueCopy(refsAsEncryptedBytes)
 		if err != nil {
 			return err
 		}
@@ -152,7 +152,7 @@ func (c *Collection) cleanRefs(ctx context.Context, txn *badger.Txn, idAsString 
 					return err
 				}
 				var indexedValueAsEncryptedBytes []byte
-				indexedValueAsEncryptedBytes, err = indexedValueAsItem.Value()
+				indexedValueAsEncryptedBytes, err = indexedValueAsItem.ValueCopy(indexedValueAsEncryptedBytes)
 				if err != nil {
 					return err
 				}
@@ -342,19 +342,20 @@ func (c *Collection) get(ctx context.Context, ids ...string) ([][]byte, error) {
 	return ret, c.store.View(func(txn *badger.Txn) error {
 		for i, id := range ids {
 			idAsBytes := c.buildStoreID(id)
-			item, getError := txn.Get(idAsBytes)
-			if getError != nil {
-				if getError == badger.ErrKeyNotFound {
+			item, err := txn.Get(idAsBytes)
+			if err != nil {
+				if err == badger.ErrKeyNotFound {
 					return ErrNotFound
 				}
-				return getError
+				return err
 			}
 
 			if item.IsDeletedOrExpired() {
 				return ErrNotFound
 			}
 
-			contentAsEncryptedBytes, err := item.Value()
+			var contentAsEncryptedBytes []byte
+			contentAsEncryptedBytes, err = item.ValueCopy(contentAsEncryptedBytes)
 			if err != nil {
 				return err
 			}
@@ -377,7 +378,7 @@ func (c *Collection) getRefs(txn *badger.Txn, id string) (*refs, error) {
 		return nil, err
 	}
 	var refsAsEncryptedBytes []byte
-	refsAsEncryptedBytes, err = refsAsItem.Value()
+	refsAsEncryptedBytes, err = refsAsItem.ValueCopy(refsAsEncryptedBytes)
 	if err != nil {
 		return nil, err
 	}

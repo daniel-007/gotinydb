@@ -134,13 +134,17 @@ func (d *DB) ReadFile(id string, writer io.Writer) error {
 		it := txn.NewIterator(opt)
 		defer it.Close()
 		for it.Seek(storeID); it.ValidForPrefix(storeID); it.Next() {
-			valAsEncryptedBytes, err := it.Item().Value()
+			item := it.Item()
+
+			var err error
+			var valAsEncryptedBytes []byte
+			valAsEncryptedBytes, err = item.ValueCopy(valAsEncryptedBytes)
 			if err != nil {
 				return err
 			}
 
 			var valAsBytes []byte
-			valAsBytes, err = cipher.Decrypt(d.options.privateCryptoKey, it.Item().Key(), valAsEncryptedBytes)
+			valAsBytes, err = cipher.Decrypt(d.options.privateCryptoKey, item.Key(), valAsEncryptedBytes)
 			if err != nil {
 				return err
 			}

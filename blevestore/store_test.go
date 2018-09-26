@@ -123,14 +123,14 @@ func TestBoltDBConfig(t *testing.T) {
 		db                   *badger.DB
 	}{
 		{
-			map[string]interface{}{"path": "test", "prefix": []byte{0}},
+			map[string]interface{}{"path": "test", "prefix": []byte{1, 9}, "db": db, "key": [32]byte{}},
 			"test",
 			[32]byte{},
-			[]byte{2, 5},
+			[]byte{1, 9},
 			db,
 		},
 		{
-			map[string]interface{}{"path": "test"},
+			map[string]interface{}{"path": "test 2", "prefix": []byte{2, 5}, "db": db, "key": [32]byte{}},
 			"test 2",
 			[32]byte{},
 			[]byte{2, 5},
@@ -150,14 +150,14 @@ func TestBoltDBConfig(t *testing.T) {
 		if bs.name != test.name {
 			t.Fatalf("path: expected %q, got %q", test.name, bs.name)
 		}
-		if reflect.DeepEqual(bs.indexPrefixID, test.indexPrefixID) {
-			t.Fatalf("prefix: expected %q, got %q", test.indexPrefixID, bs.indexPrefixID)
+		if !reflect.DeepEqual(bs.indexPrefixID, test.indexPrefixID) {
+			t.Fatalf("prefix: expected %X, got %X", test.indexPrefixID, bs.indexPrefixID)
 		}
 		if bs.db != test.db {
 			t.Fatalf("db: expected %v, got %v", test.db, bs.db)
 		}
 		if bs.primaryEncryptionKey != test.primaryEncryptionKey {
-			t.Fatalf("key: expected %v, got %v", test.primaryEncryptionKey, bs.primaryEncryptionKey)
+			t.Fatalf("key: expected %X, got %X", test.primaryEncryptionKey, bs.primaryEncryptionKey)
 		}
 	}
 }

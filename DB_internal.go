@@ -199,7 +199,7 @@ func (d *DB) loadCollections() error {
 			return err
 		}
 		var configAsBytesEncrypted []byte
-		configAsBytesEncrypted, err = item.Value()
+		configAsBytesEncrypted, err = item.ValueCopy(configAsBytesEncrypted)
 		if err != nil {
 			return err
 		}

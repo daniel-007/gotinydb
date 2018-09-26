@@ -658,7 +658,9 @@ func TestFiles(t *testing.T) {
 		defer it.Close()
 		prevLastByte := -1
 		for it.Seek(storeID); it.ValidForPrefix(storeID); it.Next() {
-			lastByte := int(it.Item().Key()[len(it.Item().Key())-1:][0])
+			item := it.Item()
+
+			lastByte := int(item.Key()[len(item.Key())-1:][0])
 			if prevLastByte+1 != lastByte {
 				if prevLastByte == 255 && lastByte != 0 {
 					t.Errorf("generated incremental bytes is not good")
