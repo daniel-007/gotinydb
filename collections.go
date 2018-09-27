@@ -249,6 +249,13 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	return c.saveCollections()
 }
 
+func (c *Collection) GetIndexesName() (ret []string) {
+	for _, i := range c.indexes {
+		ret = append(ret, i.Name)
+	}
+	return
+}
+
 func (c *Collection) GetIndex(name string) (bleve.Index, error) {
 	index, err := c.getIndex(name)
 	if err != nil {
