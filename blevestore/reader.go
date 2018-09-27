@@ -91,5 +91,6 @@ func (r *Reader) RangeIterator(start, end []byte) store.KVIterator {
 }
 
 func (r *Reader) Close() error {
+	r.txn.Discard()
 	return nil
 }

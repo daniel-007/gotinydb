@@ -28,21 +28,7 @@ type Iterator struct {
 	prefix   []byte
 	start    []byte
 	end      []byte
-	// valid    bool
-	// key      []byte
-	// val      []byte
 }
-
-// func (i *Iterator) updateValid() {
-// 	i.valid = (i.key != nil)
-// 	if i.valid {
-// 		if i.prefix != nil {
-// 			i.valid = bytes.HasPrefix(i.key, i.prefix)
-// 		} else if i.end != nil {
-// 			i.valid = bytes.Compare(i.key, i.end) < 0
-// 		}
-// 	}
-// }
 
 func (i *Iterator) Seek(k []byte) {
 	if i.start != nil && bytes.Compare(k, i.start) < 0 {
@@ -51,13 +37,8 @@ func (i *Iterator) Seek(k []byte) {
 	if i.prefix != nil && !bytes.HasPrefix(k, i.prefix) {
 		if bytes.Compare(k, i.prefix) < 0 {
 			k = i.prefix
-			// } else {
-			// 	i.valid = false
-			// 	return
 		}
 	}
-	// i.key, i.val = i.cursor.Seek(k)
-	// i.updateValid()
 
 	i.iterator.Seek(i.store.buildID(k))
 }

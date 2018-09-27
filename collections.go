@@ -236,6 +236,7 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 
 	i.kvConfig = c.buildKvConfig(i.Prefix)
 
+	// bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, boltdb.Name, i.kvConfig)
 	bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, blevestore.Name, i.kvConfig)
 	if err != nil {
 		return err

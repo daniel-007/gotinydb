@@ -63,7 +63,13 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		item, err = txn.Get(storeID)
 		// If the KV pair exists the existing value is saved
 		if err == nil {
-			existingVal, err = item.ValueCopy(existingVal)
+			var encryptedValue []byte
+			encryptedValue, err = item.ValueCopy(existingVal)
+			if err != nil {
+				return
+			}
+
+			existingVal, err = cipher.Decrypt(w.store.primaryEncryptionKey, storeID, encryptedValue)
 			if err != nil {
 				return
 			}

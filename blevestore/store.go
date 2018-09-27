@@ -1,8 +1,6 @@
 package blevestore
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -13,8 +11,7 @@ import (
 )
 
 const (
-	Name                    = "internal"
-	defaultCompactBatchSize = 100
+	Name = "internal"
 )
 
 type Store struct {
@@ -77,63 +74,6 @@ func (bs *Store) Writer() (store.KVWriter, error) {
 	return &Writer{
 		store: bs,
 	}, nil
-}
-
-func (bs *Store) Stats() json.Marshaler {
-	return &stats{
-		s: bs,
-	}
-}
-
-// CompactWithBatchSize removes DictionaryTerm entries with a count of zero (in batchSize batches)
-// Removing entries is a workaround for github issue #374.
-func (bs *Store) CompactWithBatchSize(batchSize int) error {
-	for {
-		cnt := 0
-		err := bs.db.Update(func(txn *badger.Txn) error {
-			iter := txn.NewIterator(badger.DefaultIteratorOptions)
-			// c := tx.Bucket([]byte(bs.bucket)).Cursor()
-			prefix := []byte("d")
-
-			// for k, v := iter.Seek(bs.buildID(prefix)); iter.ValidForPrefix(prefix); k, v = iter.Next() {
-			for iter.Seek(bs.buildID(prefix)); iter.ValidForPrefix(prefix); iter.Next() {
-				item := iter.Item()
-
-				var k, v []byte
-				item.KeyCopy(k)
-				_, err := item.ValueCopy(v)
-				if err != nil {
-					return err
-				}
-
-				if bytes.Equal(v, []byte{0}) {
-					cnt++
-					if err := txn.Delete(bs.buildID(prefix)); err != nil {
-						return err
-					}
-					if cnt == batchSize {
-						break
-					}
-				}
-
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		if cnt == 0 {
-			break
-		}
-	}
-	return nil
-}
-
-// Compact calls CompactWithBatchSize with a default batch size of 100.  This is a workaround
-// for github issue #374.
-func (bs *Store) Compact() error {
-	return bs.CompactWithBatchSize(defaultCompactBatchSize)
 }
 
 func init() {
