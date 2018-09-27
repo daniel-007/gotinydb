@@ -290,8 +290,8 @@ func (d *DB) saveCollections() error {
 func (d *DB) initDB() error {
 	d.freePrefix = make([]byte, 255)
 	// Start at one because the first slot is used to save the database configurations
-	for i := 1; i < 255; i++ {
-		d.freePrefix[i] = byte(i)
+	for i := 1; i <= 255; i++ {
+		d.freePrefix[i-1] = byte(i)
 	}
 
 	newKey := [chacha20poly1305.KeySize]byte{}
@@ -346,4 +346,38 @@ func (d *DB) insertOrDeleteFileChunks(ctx context.Context, txn *badger.Txn, wtEl
 		return txn.SetEntry(e)
 	}
 	return nil
+}
+
+// deleteCollectionIteration delete up to 10000 records. Retruns the error if any and true if done.
+func (d *DB) deleteCollectionIteration(prefix byte) (bool, error) {
+	done := false
+
+	return done, d.badgerDB.Update(func(txn *badger.Txn) error {
+		opt := badger.DefaultIteratorOptions
+		opt.PrefetchValues = false
+		it := txn.NewIterator(opt)
+		defer it.Close()
+
+		counter := 1
+		prefixSlice := []byte{prefix}
+
+		// Remove the index DB files
+		for it.Seek(prefixSlice); it.ValidForPrefix(prefixSlice); it.Next() {
+			key := []byte{}
+			key = it.Item().KeyCopy(key)
+			err := txn.Delete(key)
+			if err != nil {
+				return err
+			}
+
+			if counter%10000 == 0 {
+				return nil
+			}
+
+			counter++
+		}
+
+		done = true
+		return nil
+	})
 }

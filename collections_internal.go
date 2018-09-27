@@ -54,15 +54,14 @@ func (c *Collection) putIntoIndexes(id string, data interface{}) error {
 }
 
 func (c *Collection) insertOrDeleteStore(ctx context.Context, txn *badger.Txn, isInsertion bool, writeTransaction *writeTransactionElement) error {
-
 	storeID := c.buildStoreID(writeTransaction.id)
-
 	if isInsertion {
 		e := &badger.Entry{
 			Key:   storeID,
 			Value: cipher.Encrypt(c.options.privateCryptoKey, storeID, writeTransaction.contentAsBytes),
 		}
 
+		// fmt.Println("put", writeTransaction.id, storeID)
 		return txn.SetEntry(e)
 	}
 	return txn.Delete(storeID)

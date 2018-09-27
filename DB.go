@@ -253,39 +253,15 @@ func (d *DB) DeleteCollection(collectionName string) error {
 		}
 	}
 
-	txn := d.badgerDB.NewTransaction(true)
-	defer txn.Discard()
-	opt := badger.DefaultIteratorOptions
-	opt.PrefetchValues = false
-	it := txn.NewIterator(opt)
-	// Make sure that the iterator is closed.
-	// But we have to make sure that close is called only onces
-	// but we need to run it before commit.
-	defer func() {
-		if r := recover(); r != nil {
-			it.Close()
-		}
-	}()
-
-	// Prevent panic
-	if c == nil {
-		return nil
-	}
-
-	// Remove the index DB files
-	prefix := c.buildCollectionPrefix()
-	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		err := txn.Delete(it.Item().Key())
+	for {
+		done, err := d.deleteCollectionIteration(c.prefix)
 		if err != nil {
 			return err
 		}
-	}
-	it.Close()
 
-	// Commit changes
-	err := txn.Commit(nil)
-	if err != nil {
-		return err
+		if done {
+			break
+		}
 	}
 
 	// Put the prefix again into the free prefix list
