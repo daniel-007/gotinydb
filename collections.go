@@ -222,6 +222,10 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	i := new(index)
 	i.Name = name
 
+	if len(c.freePrefix) == 0 {
+		return ErrIndexLimit
+	}
+
 	// Set the prefix
 	i.Prefix = c.freePrefix[0]
 
@@ -234,7 +238,7 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 		return err
 	}
 
-	bleveIndex.Close()
+	i.index = bleveIndex
 
 	c.indexes = append(c.indexes, i)
 

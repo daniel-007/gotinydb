@@ -82,6 +82,8 @@ var (
 	ErrIndexNotFound = fmt.Errorf("index not found")
 	// ErrIndexNameAllreadyExists is returned when try to add an index but the same name is present in the list of indexes
 	ErrIndexNameAllreadyExists = fmt.Errorf("index in this collection with same name exists")
+	// ErrIndexLimit is returned when the caller exceed the limit of indexes which is 256 indexes per collection
+	ErrIndexLimit = fmt.Errorf("there is no left prefix for this index")
 	// ErrEmptyID defines error when the given id is empty
 	ErrEmptyID = fmt.Errorf("empty ID")
 	// ErrTimeOut defines the error when the query is timed out

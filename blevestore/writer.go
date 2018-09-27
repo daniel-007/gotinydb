@@ -56,9 +56,12 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 	for k, mergeOps := range emulatedBatch.Merger.Merges {
 		kb := []byte(k)
 
+		storeID := w.store.buildID(kb)
+
 		var item *badger.Item
 		existingVal := []byte{}
-		item, err = txn.Get(w.store.buildID(kb))
+		// fmt.Printf("*Writer: get %X(%d)\n", storeID, len(storeID))
+		item, err = txn.Get(storeID)
 		// If the KV pair exists the existing value is saved
 		if err == nil {
 			existingVal, err = item.ValueCopy(existingVal)
@@ -73,7 +76,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		storeID := w.store.buildID(kb)
+		// fmt.Printf("*Writer: set %X(%d) %X(%d)\n", storeID, len(storeID), mergedVal, len(mergedVal))
 		err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, mergedVal))
 		if err != nil {
 			return
@@ -84,11 +87,13 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		storeID := w.store.buildID(op.K)
 
 		if op.V != nil {
+			// fmt.Printf("*Writer: set %X(%d) %X(%d)\n", storeID, len(storeID), op.V, len(op.V))
 			err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, op.V))
 			if err != nil {
 				return
 			}
 		} else {
+			// fmt.Printf("*Writer: delete %X(%d)\n", storeID, len(storeID))
 			err = txn.Delete(storeID)
 			if err != nil {
 				return

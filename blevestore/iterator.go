@@ -67,7 +67,7 @@ func (i *Iterator) Next() {
 }
 
 func (i *Iterator) Current() (key []byte, val []byte, valid bool) {
-	valid = i.iterator.ValidForPrefix(i.store.buildID(key))
+	valid = i.Valid()
 	if !valid {
 		return
 	}
@@ -86,16 +86,16 @@ func (i *Iterator) key() (key []byte) {
 	return
 }
 
-func (i *Iterator) Key() (key []byte) {
+func (i *Iterator) Key() []byte {
 	if !i.Valid() {
-		return
+		return nil
 	}
 	return i.key()
 }
 
-func (i *Iterator) Value() (val []byte) {
+func (i *Iterator) Value() []byte {
 	if !i.Valid() {
-		return
+		return nil
 	}
 
 	item := i.iterator.Item()
@@ -103,9 +103,10 @@ func (i *Iterator) Value() (val []byte) {
 	var encryptVal []byte
 	encryptVal, _ = item.ValueCopy(encryptVal)
 
+	val := []byte{}
 	val, _ = cipher.Decrypt(i.store.primaryEncryptionKey, item.Key(), encryptVal)
 
-	return
+	return val
 }
 
 func (i *Iterator) Valid() bool {
