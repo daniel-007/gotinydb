@@ -31,8 +31,9 @@ type (
 		PrivateCryptoKey [32]byte
 	}
 	collectionExport struct {
-		Name   string
-		Prefix byte
+		Name    string
+		Prefix  byte
+		Indexes []*index
 	}
 
 	// Options defines the deferent configuration elements of the database

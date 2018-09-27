@@ -240,7 +240,8 @@ func (d *DB) loadCollections() error {
 			newCol.writeTransactionChan = d.writeTransactionChan
 			newCol.ctx = d.ctx
 			newCol.options = d.options
-			fmt.Println("Need to take care of the index")
+
+			newCol.indexes = savedCol.Indexes
 
 			d.collections = append(d.collections, newCol)
 		}
@@ -263,7 +264,7 @@ func (d *DB) saveCollections() error {
 			colToSave := new(collectionExport)
 			colToSave.Name = col.name
 			colToSave.Prefix = col.prefix
-			fmt.Println("take care of the index")
+			colToSave.Indexes = col.indexes
 
 			dbToSave.Collections = append(dbToSave.Collections, colToSave)
 		}
