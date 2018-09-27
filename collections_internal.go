@@ -31,6 +31,17 @@ func (c *Collection) buildStoreID(id string) []byte {
 	return c.buildIDWhitPrefixData([]byte(id))
 }
 
+func (c *Collection) initIndexes() error {
+	for _, i := range c.indexes {
+		i.kvConfig = c.buildKvConfig(i.Prefix)
+		err := i.open()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Collection) putIntoIndexes(id string, data interface{}) error {
 	for _, i := range c.indexes {
 		err := i.index.Index(id, data)

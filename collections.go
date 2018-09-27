@@ -228,12 +228,15 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 
 	// Set the prefix
 	i.Prefix = c.freePrefix[0]
-
 	// Remove the prefix from the list of free prefixes
 	c.freePrefix = append(c.freePrefix[:0], c.freePrefix[1:]...)
 
-	kvConfig := c.buildKvConfig(i.Prefix)
-	bleveIndex, err := bleve.NewUsing(c.options.Path+"/"+c.name+"/"+name, bleveMapping, upsidedown.Name, blevestore.Name, kvConfig)
+	// Path of the configuration
+	i.Path = c.options.Path + "/" + c.name + "/" + name
+
+	i.kvConfig = c.buildKvConfig(i.Prefix)
+
+	bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, blevestore.Name, i.kvConfig)
 	if err != nil {
 		return err
 	}

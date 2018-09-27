@@ -115,7 +115,9 @@ func (i *Iterator) Valid() bool {
 	}
 	if i.prefix != nil {
 		return i.iterator.ValidForPrefix(i.store.buildID(i.prefix))
-	} else if i.end != nil {
+		// If no prefix but end.
+		// It's needed to check if the prefix still valid.
+	} else if i.end != nil && i.iterator.ValidForPrefix(i.store.buildID(nil)) {
 		return bytes.Compare(i.key(), i.end) < 0
 	}
 	return i.iterator.ValidForPrefix(i.store.buildID(nil))

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger"
@@ -180,7 +179,11 @@ func (d *DB) writeOneTransaction(ctx context.Context, txn *badger.Txn, wtElem *w
 		return err
 	}
 
-	fmt.Println("clean index")
+	// Clean the index
+	for _, i := range wtElem.collection.indexes {
+		i.index.Delete(wtElem.id)
+	}
+
 	return nil
 }
 

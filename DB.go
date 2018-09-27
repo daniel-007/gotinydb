@@ -39,6 +39,10 @@ func Open(ctx context.Context, options *Options) (*DB, error) {
 func (d *DB) Use(colName string) (*Collection, error) {
 	for _, col := range d.collections {
 		if col.name == colName {
+			err := col.initIndexes()
+			if err != nil {
+				return nil, err
+			}
 			return col, nil
 		}
 	}
@@ -70,7 +74,6 @@ func (d *DB) SetOptions(options *Options) error {
 	// Apply the configuration to all collections index stores
 	for _, col := range d.collections {
 		col.options = options
-		fmt.Println("need to take care of the index")
 	}
 	return nil
 }

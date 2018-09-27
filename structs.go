@@ -82,8 +82,12 @@ type (
 	}
 
 	index struct {
-		Name             string
-		Prefix           byte
+		Name   string
+		Prefix byte
+		Path   string
+
+		kvConfig map[string]interface{}
+
 		collectionPrefix byte
 
 		index bleve.Index
