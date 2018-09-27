@@ -283,6 +283,7 @@ func (c *Collection) DeleteIndex(name string) error {
 		opt := badger.DefaultIteratorOptions
 		opt.PrefetchValues = false
 		iter := txn.NewIterator(opt)
+		defer iter.Close()
 
 		for iter.Seek(index.buildPrefix()); iter.ValidForPrefix(index.buildPrefix()); iter.Next() {
 			item := iter.Item()
