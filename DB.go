@@ -22,7 +22,9 @@ func Open(ctx context.Context, options *Options) (*DB, error) {
 	d.options = options
 	d.ctx = ctx
 
-	d.initWriteTransactionChan(ctx)
+	d.initWriteChannels(ctx)
+	// d.initWriteTransactionChan(ctx)
+	// d.writeIndexChan = make(chan *blevestore.BleveStoreWriteRequest, 0)
 
 	if err := os.MkdirAll(d.options.Path, FilePermission); err != nil {
 		return nil, err

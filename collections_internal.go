@@ -34,8 +34,7 @@ func (c *Collection) buildStoreID(id string) []byte {
 
 func (c *Collection) initIndexes() error {
 	for _, i := range c.indexes {
-		kvConfig := c.buildKvConfig(i.Prefix)
-		i.kvConfig = kvConfig
+		i.kvConfig = c.buildKvConfig(i.Prefix)
 		err := i.open()
 		if err != nil {
 			return err
@@ -44,12 +43,14 @@ func (c *Collection) initIndexes() error {
 	return nil
 }
 
-func (c *Collection) putIntoIndexes(id string, data interface{}) error {
+func (c *Collection) putIntoIndexes(txn *badger.Txn, id string, data interface{}) error {
 	for _, i := range c.indexes {
+		i.writeTxn = txn
 		err := i.index.Index(id, data)
 		if err != nil {
 			return err
 		}
+		i.writeTxn = nil
 	}
 
 	return nil
@@ -180,7 +181,7 @@ newLoop:
 			continue
 		}
 
-		err := c.putIntoIndexes(savedElement.GetID(), savedElement.contentAsBytes)
+		err := c.putIntoIndexes(txn, savedElement.GetID(), savedElement.contentAsBytes)
 		if err != nil {
 			return err
 		}
@@ -212,7 +213,7 @@ func (c *Collection) buildKvConfig(indexPrefix byte) (config map[string]interfac
 			[32]byte{},
 			collectionAndIndexPrefix,
 			c.store,
-			c.writeTxn,
+			c.writeIndexChan,
 		),
 	}
 }
@@ -240,8 +241,7 @@ func (c *Collection) getIndex(name string) (*index, error) {
 	}
 
 	// Load the index
-	kvConfig := c.buildKvConfig(index.Prefix)
-	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, kvConfig)
+	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, c.buildKvConfig(index.Prefix))
 	if err != nil {
 		return nil, err
 	}

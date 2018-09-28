@@ -16,10 +16,15 @@ const (
 
 type (
 	BleveStoreConfig struct {
-		key      [32]byte
-		prefix   []byte
-		db       *badger.DB
-		writeTxn *badger.Txn
+		key            [32]byte
+		prefix         []byte
+		db             *badger.DB
+		bleveWriteChan chan *BleveStoreWriteRequest
+	}
+
+	BleveStoreWriteRequest struct {
+		ID, Content  []byte
+		ResponseChan chan error
 	}
 
 	Store struct {
@@ -112,11 +117,21 @@ func (bs *Store) buildID(key []byte) []byte {
 	return append(bs.config.prefix, key...)
 }
 
-func NewBleveStoreConfig(key [32]byte, prefix []byte, db *badger.DB, wTxn *badger.Txn) *BleveStoreConfig {
+func NewBleveStoreConfig(key [32]byte, prefix []byte, db *badger.DB, writeChan chan *BleveStoreWriteRequest) (config *BleveStoreConfig) {
 	return &BleveStoreConfig{
-		key:      key,
-		prefix:   prefix,
-		db:       db,
-		writeTxn: wTxn,
+		key:            key,
+		prefix:         prefix,
+		db:             db,
+		bleveWriteChan: writeChan,
 	}
+}
+
+func NewBleveStoreWriteRequest(dbID, content []byte) *BleveStoreWriteRequest {
+	ret := new(BleveStoreWriteRequest)
+	ret.ID = dbID
+	ret.Content = content
+
+	ret.ResponseChan = make(chan error, 0)
+
+	return ret
 }

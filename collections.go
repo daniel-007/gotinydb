@@ -249,8 +249,21 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	// Path of the configuration
 	i.Path = c.options.Path + "/" + c.name + "/" + name
 
-	kvConfig := c.buildKvConfig(i.Prefix)
-	i.kvConfig = kvConfig
+	go func() {
+		fmt.Println("wait")
+		request := <-c.writeIndexChan
+		fmt.Println("had", request)
+		fmt.Printf("%p\n", c.writeIndexChan)
+		c.store.Update(func(txn *badger.Txn) error {
+			err := txn.Set(request.ID, request.Content)
+
+			request.ResponseChan <- err
+
+			return err
+		})
+	}()
+
+	i.kvConfig = c.buildKvConfig(i.Prefix)
 	bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, blevestore.Name, i.kvConfig)
 	if err != nil {
 		return err

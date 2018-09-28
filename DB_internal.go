@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/alexandrestein/gotinydb/blevestore"
 	"github.com/alexandrestein/gotinydb/cipher"
 )
 
@@ -49,14 +50,17 @@ func (d *DB) initBadger() error {
 	return nil
 }
 
-func (d *DB) initWriteTransactionChan(ctx context.Context) {
+func (d *DB) initWriteChannels(ctx context.Context) {
 	// Set a limit
 	limit := d.options.PutBufferLimit
 	// Build the queue with 2 times the limit to help writing on disc
 	// in the same order as the operation are called
 	d.writeTransactionChan = make(chan *writeTransaction, limit*2)
-	// Start the infinite loop
 
+	// Build a new channel for writing indexes
+	d.writeIndexChan = make(chan *blevestore.BleveStoreWriteRequest, 0)
+
+	// Start the infinite loop
 	go d.waittingWriteLoop(ctx, limit)
 }
 
@@ -79,6 +83,7 @@ func (d *DB) initCollection(name string) (*Collection, error) {
 	// Set the different attributes of the collection
 	c.store = d.badgerDB
 	c.writeTransactionChan = d.writeTransactionChan
+	c.writeIndexChan = d.writeIndexChan
 	c.ctx = d.ctx
 	c.options = d.options
 
@@ -174,8 +179,19 @@ func (d *DB) writeOneTransaction(ctx context.Context, txn *badger.Txn, wtElem *w
 			return err
 		}
 
+		go func() {
+			request := <-d.writeIndexChan
+			d.badgerDB.Update(func(txn *badger.Txn) error {
+				err := txn.Set(request.ID, request.Content)
+
+				request.ResponseChan <- err
+
+				return err
+			})
+		}()
+
 		// Starts the indexing process
-		return wtElem.collection.putIntoIndexes(wtElem.id, wtElem.contentInterface)
+		return wtElem.collection.putIntoIndexes(txn, wtElem.id, wtElem.contentInterface)
 	}
 
 	// Else is because it's a deletation
@@ -246,6 +262,7 @@ func (d *DB) loadCollections() error {
 			newCol.prefix = savedCol.Prefix
 			newCol.store = d.badgerDB
 			newCol.writeTransactionChan = d.writeTransactionChan
+			newCol.writeIndexChan = d.writeIndexChan
 			newCol.ctx = d.ctx
 			newCol.options = d.options
 

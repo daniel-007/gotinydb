@@ -30,6 +30,22 @@ func (w *Writer) NewBatch() store.KVBatch {
 	return store.NewEmulatedBatch(w.store.mo)
 }
 
+func (w *Writer) set(dbID, content []byte) error {
+	req := NewBleveStoreWriteRequest(dbID, content)
+
+	fmt.Println("Sending for response")
+	fmt.Printf("%p\n", w.store.config.bleveWriteChan)
+
+	// debug.PrintStack()
+	w.store.config.bleveWriteChan <- req
+
+	fmt.Println("wait for response")
+	err := <-req.ResponseChan
+	fmt.Println("err", err)
+
+	return err
+}
+
 func (w *Writer) NewBatchEx(options store.KVBatchOptions) ([]byte, store.KVBatch, error) {
 	return make([]byte, options.TotalBytes), w.NewBatch(), nil
 }
@@ -41,25 +57,25 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 	}
 
 	// txn := w.store.db.NewTransaction(true)
-	localTxn := false
-	txn := w.store.config.writeTxn
-	if txn == nil {
-		txn = w.store.config.db.NewTransaction(true)
-		localTxn = true
-	}
+	// localTxn := false
+	// txn := w.store.config.writeTxn
+	// if txn == nil {
+	txn := w.store.config.db.NewTransaction(false)
+	defer txn.Discard()
+	// 	localTxn = true
+	// }
 
-	if localTxn {
-		// defer function to ensure that once started,
-		// we either Commit tx or Rollback
-		defer func() {
-			// if nothing went wrong, commit
-			if err == nil {
-				// careful to catch error here too
-				err = txn.Commit(nil)
-			}
-			txn.Discard()
-		}()
-	}
+	// if localTxn {
+	// 	// defer function to ensure that once started,
+	// 	// we either Commit tx or Rollback
+	// 	defer func() {
+	// 		// if nothing went wrong, commit
+	// 		if err == nil {
+	// 			// careful to catch error here too
+	// 			err = txn.Commit(nil)
+	// 		}
+	// 	}()
+	// }
 
 	for k, mergeOps := range emulatedBatch.Merger.Merges {
 		kb := []byte(k)
@@ -89,7 +105,8 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, mergedVal))
+		// err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, mergedVal))
+		err = w.set(storeID, cipher.Encrypt(w.store.config.key, storeID, mergedVal))
 		if err != nil {
 			return
 		}
@@ -99,7 +116,8 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		storeID := w.store.buildID(op.K)
 
 		if op.V != nil {
-			err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, op.V))
+			// err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, op.V))
+			err = w.set(storeID, cipher.Encrypt(w.store.config.key, storeID, op.V))
 			if err != nil {
 				return
 			}

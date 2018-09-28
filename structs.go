@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/alexandrestein/gotinydb/blevestore"
 	"github.com/blevesearch/bleve"
 	"github.com/dgraph-io/badger"
 )
@@ -20,7 +21,7 @@ type (
 		freePrefix []byte
 
 		writeTransactionChan chan *writeTransaction
-		writeTxn             *badger.Txn
+		writeIndexChan       chan *blevestore.BleveStoreWriteRequest
 
 		ctx     context.Context
 		closing bool
@@ -76,7 +77,7 @@ type (
 		store *badger.DB
 
 		writeTransactionChan chan *writeTransaction
-		writeTxn             *badger.Txn
+		writeIndexChan       chan *blevestore.BleveStoreWriteRequest
 
 		ctx context.Context
 
