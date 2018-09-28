@@ -42,9 +42,9 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 
 	// txn := w.store.db.NewTransaction(true)
 	localTxn := false
-	txn := w.store.writeTxn
+	txn := w.store.config.writeTxn
 	if txn == nil {
-		txn = w.store.db.NewTransaction(true)
+		txn = w.store.config.db.NewTransaction(true)
 		localTxn = true
 	}
 
@@ -77,7 +77,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 				return
 			}
 
-			existingVal, err = cipher.Decrypt(*w.store.primaryEncryptionKey, storeID, encryptedValue)
+			existingVal, err = cipher.Decrypt(w.store.config.key, storeID, encryptedValue)
 			if err != nil {
 				return
 			}
@@ -89,7 +89,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		err = txn.Set(storeID, cipher.Encrypt(*w.store.primaryEncryptionKey, storeID, mergedVal))
+		err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, mergedVal))
 		if err != nil {
 			return
 		}
@@ -99,7 +99,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		storeID := w.store.buildID(op.K)
 
 		if op.V != nil {
-			err = txn.Set(storeID, cipher.Encrypt(*w.store.primaryEncryptionKey, storeID, op.V))
+			err = txn.Set(storeID, cipher.Encrypt(w.store.config.key, storeID, op.V))
 			if err != nil {
 				return
 			}

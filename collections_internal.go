@@ -3,6 +3,7 @@ package gotinydb
 import (
 	"context"
 
+	"github.com/alexandrestein/gotinydb/blevestore"
 	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/blevesearch/bleve"
 	"github.com/dgraph-io/badger"
@@ -33,13 +34,12 @@ func (c *Collection) buildStoreID(id string) []byte {
 
 func (c *Collection) initIndexes() error {
 	for _, i := range c.indexes {
-		keyPointer, kvConfig := c.buildKvConfig(i.Prefix)
+		kvConfig := c.buildKvConfig(i.Prefix)
 		i.kvConfig = kvConfig
 		err := i.open()
 		if err != nil {
 			return err
 		}
-		*keyPointer = c.options.CryptoKey
 	}
 	return nil
 }
@@ -204,15 +204,16 @@ func (c *Collection) isRunning() bool {
 	return true
 }
 
-func (c *Collection) buildKvConfig(indexPrefix byte) (keyPointer *[32]byte, config map[string]interface{}) {
+func (c *Collection) buildKvConfig(indexPrefix byte) (config map[string]interface{}) {
 	collectionAndIndexPrefix := []byte{c.prefix, indexPrefix}
-	key := &[32]byte{}
-	return key, map[string]interface{}{
-		"path":     "test",
-		"prefix":   collectionAndIndexPrefix,
-		"db":       c.store,
-		"key":      key,
-		"writeTxn": c.writeTxn,
+	return map[string]interface{}{
+		"path": "test",
+		"config": blevestore.NewBleveStoreConfig(
+			[32]byte{},
+			collectionAndIndexPrefix,
+			c.store,
+			c.writeTxn,
+		),
 	}
 }
 
@@ -239,12 +240,11 @@ func (c *Collection) getIndex(name string) (*index, error) {
 	}
 
 	// Load the index
-	keyPointer, kvConfig := c.buildKvConfig(index.Prefix)
+	kvConfig := c.buildKvConfig(index.Prefix)
 	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, kvConfig)
 	if err != nil {
 		return nil, err
 	}
-	*keyPointer = c.options.CryptoKey
 
 	// Save the index interface into the internal index type
 	index.index = bleveIndex

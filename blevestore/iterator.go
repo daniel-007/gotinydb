@@ -61,7 +61,7 @@ func (i *Iterator) Current() (key []byte, val []byte, valid bool) {
 func (i *Iterator) key() (key []byte) {
 	key = []byte{}
 	key = i.iterator.Item().KeyCopy(key)
-	key = key[i.store.indexPrefixIDLen:]
+	key = key[len(i.store.config.prefix):]
 
 	return
 }
@@ -84,7 +84,7 @@ func (i *Iterator) Value() []byte {
 	encryptVal, _ = item.ValueCopy(encryptVal)
 
 	val := []byte{}
-	val, _ = cipher.Decrypt(*i.store.primaryEncryptionKey, item.Key(), encryptVal)
+	val, _ = cipher.Decrypt(i.store.config.key, item.Key(), encryptVal)
 	// val, _ = i.store.decrypt(item.Key(), encryptVal)
 
 	return val

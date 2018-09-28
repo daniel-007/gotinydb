@@ -51,11 +51,13 @@ func open(t *testing.T, mo store.MergeOperator) store.KVStore {
 	var writeTxn *badger.Txn
 	var rv store.KVStore
 	rv, err = New(mo, map[string]interface{}{
-		"path":     "test",
-		"prefix":   []byte{1, 9},
-		"db":       db,
-		"key":      &key,
-		"writeTxn": writeTxn,
+		"path": "test",
+		"config": &BleveStoreConfig{
+			key:      [32]byte{},
+			prefix:   []byte{1, 9},
+			db:       db,
+			writeTxn: writeTxn,
+		},
 	})
 	// rv, err = New(mo, map[string]interface{}{
 	// 	"path":     "test",

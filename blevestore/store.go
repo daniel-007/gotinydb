@@ -14,16 +14,26 @@ const (
 	Name = "internal"
 )
 
-type Store struct {
-	// name is defined by the path
-	name                 string
-	writeTxn             *badger.Txn
-	primaryEncryptionKey *[32]byte
-	indexPrefixID        []byte
-	indexPrefixIDLen     int
-	db                   *badger.DB
-	mo                   store.MergeOperator
-}
+type (
+	BleveStoreConfig struct {
+		key      [32]byte
+		prefix   []byte
+		db       *badger.DB
+		writeTxn *badger.Txn
+	}
+
+	Store struct {
+		// name is defined by the path
+		name   string
+		config *BleveStoreConfig
+		// writeTxn             *badger.Txn
+		// primaryEncryptionKey *[32]byte
+		// indexPrefixID        []byte
+		// indexPrefixIDLen     int
+		// db *badger.DB
+		mo store.MergeOperator
+	}
+)
 
 func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, error) {
 	path, ok := config["path"].(string)
@@ -34,20 +44,25 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 		return nil, os.ErrInvalid
 	}
 
-	prefixID, ok := config["prefix"].([]byte)
+	configPointer, ok := config["config"].(*BleveStoreConfig)
 	if !ok {
-		return nil, fmt.Errorf("must specify a prefix")
+		return nil, fmt.Errorf("must specify the config")
 	}
 
-	db, ok := config["db"].(*badger.DB)
-	if !ok {
-		return nil, fmt.Errorf("must specify a db")
-	}
+	// prefixID, ok := config["prefix"].([]byte)
+	// if !ok {
+	// 	return nil, fmt.Errorf("must specify a prefix")
+	// }
 
-	primaryEncryptionKey, ok := config["key"].(*[32]byte)
-	if !ok {
-		return nil, fmt.Errorf("must specify a key as [32]byte")
-	}
+	// db, ok := config["db"].(*badger.DB)
+	// if !ok {
+	// 	return nil, fmt.Errorf("must specify a db")
+	// }
+
+	// primaryEncryptionKey, ok := config["key"].(*[32]byte)
+	// if !ok {
+	// 	return nil, fmt.Errorf("must specify a key as [32]byte")
+	// }
 
 	// encrypt, ok := config["encrypt"].(func(dbID, clearContent []byte) []byte)
 	// if !ok {
@@ -59,19 +74,15 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 	// 	return nil, fmt.Errorf("the decrypt function must be provided")
 	// }
 
-	writeTxn, ok := config["writeTxn"].(*badger.Txn)
-	if !ok {
-		return nil, fmt.Errorf("the write transaction pointer must be initialized")
-	}
+	// writeTxn, ok := config["writeTxn"].(*badger.Txn)
+	// if !ok {
+	// 	return nil, fmt.Errorf("the write transaction pointer must be initialized")
+	// }
 
 	rv := Store{
-		name:                 path,
-		indexPrefixID:        prefixID,
-		indexPrefixIDLen:     len(prefixID),
-		primaryEncryptionKey: primaryEncryptionKey,
-		writeTxn:             writeTxn,
-		db:                   db,
-		mo:                   mo,
+		name:   path,
+		config: configPointer,
+		mo:     mo,
 	}
 	return &rv, nil
 }
@@ -82,8 +93,8 @@ func (bs *Store) Close() error { return nil }
 func (bs *Store) Reader() (store.KVReader, error) {
 	return &Reader{
 		store:         bs,
-		txn:           bs.db.NewTransaction(false),
-		indexPrefixID: bs.indexPrefixID,
+		txn:           bs.config.db.NewTransaction(false),
+		indexPrefixID: bs.config.prefix,
 	}, nil
 }
 
@@ -98,5 +109,14 @@ func init() {
 }
 
 func (bs *Store) buildID(key []byte) []byte {
-	return append(bs.indexPrefixID, key...)
+	return append(bs.config.prefix, key...)
+}
+
+func NewBleveStoreConfig(key [32]byte, prefix []byte, db *badger.DB, wTxn *badger.Txn) *BleveStoreConfig {
+	return &BleveStoreConfig{
+		key:      key,
+		prefix:   prefix,
+		db:       db,
+		writeTxn: wTxn,
+	}
 }

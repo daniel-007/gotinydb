@@ -42,7 +42,7 @@ func (r *Reader) get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return cipher.Decrypt(*r.store.primaryEncryptionKey, storeKey, rv)
+	return cipher.Decrypt(r.store.config.key, storeKey, rv)
 	// return r.store.decrypt(storeKey, rv)
 }
 func (r *Reader) Get(key []byte) (ret []byte, err error) {
