@@ -249,12 +249,14 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	// Path of the configuration
 	i.Path = c.options.Path + "/" + c.name + "/" + name
 
-	i.kvConfig = c.buildKvConfig(i.Prefix)
-
+	keyPointer, kvConfig := c.buildKvConfig(i.Prefix)
+	i.kvConfig = kvConfig
 	bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, blevestore.Name, i.kvConfig)
 	if err != nil {
 		return err
 	}
+
+	*keyPointer = c.options.CryptoKey
 
 	i.index = bleveIndex
 

@@ -33,11 +33,13 @@ func (c *Collection) buildStoreID(id string) []byte {
 
 func (c *Collection) initIndexes() error {
 	for _, i := range c.indexes {
-		i.kvConfig = c.buildKvConfig(i.Prefix)
+		keyPointer, kvConfig := c.buildKvConfig(i.Prefix)
+		i.kvConfig = kvConfig
 		err := i.open()
 		if err != nil {
 			return err
 		}
+		*keyPointer = c.options.CryptoKey
 	}
 	return nil
 }
@@ -202,18 +204,14 @@ func (c *Collection) isRunning() bool {
 	return true
 }
 
-func (c *Collection) buildKvConfig(indexPrefix byte) map[string]interface{} {
+func (c *Collection) buildKvConfig(indexPrefix byte) (keyPointer *[32]byte, config map[string]interface{}) {
 	collectionAndIndexPrefix := []byte{c.prefix, indexPrefix}
-	return map[string]interface{}{
-		"path":   "test",
-		"prefix": collectionAndIndexPrefix,
-		"db":     c.store,
-		"encrypt": func(dbID, clearContent []byte) []byte {
-			return cipher.Encrypt(c.options.CryptoKey, dbID, clearContent)
-		},
-		"decrypt": func(dbID, encryptedContent []byte) ([]byte, error) {
-			return cipher.Decrypt(c.options.CryptoKey, dbID, encryptedContent)
-		},
+	key := &[32]byte{}
+	return key, map[string]interface{}{
+		"path":     "test",
+		"prefix":   collectionAndIndexPrefix,
+		"db":       c.store,
+		"key":      key,
 		"writeTxn": c.writeTxn,
 	}
 }
@@ -241,10 +239,12 @@ func (c *Collection) getIndex(name string) (*index, error) {
 	}
 
 	// Load the index
-	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, c.buildKvConfig(index.Prefix))
+	keyPointer, kvConfig := c.buildKvConfig(index.Prefix)
+	bleveIndex, err := bleve.OpenUsing(c.options.Path+"/"+c.name+"/"+index.Name, kvConfig)
 	if err != nil {
 		return nil, err
 	}
+	*keyPointer = c.options.CryptoKey
 
 	// Save the index interface into the internal index type
 	index.index = bleveIndex
