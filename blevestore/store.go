@@ -47,17 +47,17 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 
 	encrypt, ok := config["encrypt"].(func(dbID, clearContent []byte) []byte)
 	if !ok {
-		return nil, fmt.Errorf("1")
+		return nil, fmt.Errorf("the encrypt function must be provided")
 	}
 
 	decrypt, ok := config["decrypt"].(func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error))
 	if !ok {
-		return nil, fmt.Errorf("2")
+		return nil, fmt.Errorf("the decrypt function must be provided")
 	}
 
 	writeTxn, ok := config["writeTxn"].(*badger.Txn)
 	if !ok {
-		return nil, fmt.Errorf("3")
+		return nil, fmt.Errorf("the write transaction pointer must be initialized")
 	}
 
 	rv := Store{
