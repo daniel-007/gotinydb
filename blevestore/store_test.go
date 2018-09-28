@@ -23,6 +23,19 @@ import (
 
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/blevesearch/bleve/index/store/test"
+
+	"github.com/alexandrestein/gotinydb/cipher"
+)
+
+var (
+	key = [32]byte{}
+
+	encryptFunc = func(dbID, clearContent []byte) (encryptedContent []byte) {
+		return cipher.Encrypt(key, dbID, clearContent)
+	}
+	decryptFunc = func(dbID, encryptedContent []byte) (clearContent []byte, _ error) {
+		return cipher.Decrypt(key, dbID, encryptedContent)
+	}
 )
 
 func open(t *testing.T, mo store.MergeOperator) store.KVStore {
@@ -31,12 +44,21 @@ func open(t *testing.T, mo store.MergeOperator) store.KVStore {
 	opt.ValueDir = "test"
 	db, err := badger.Open(opt)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return nil
 	}
+	var writeTxn *badger.Txn
 	var rv store.KVStore
-	rv, err = New(mo, map[string]interface{}{"path": "test", "prefix": []byte{1, 9}, "db": db, "key": [32]byte{}})
+	rv, err = New(mo, map[string]interface{}{
+		"path":     "test",
+		"prefix":   []byte{1, 9},
+		"db":       db,
+		"encrypt":  encryptFunc,
+		"decrypt":  decryptFunc,
+		"writeTxn": writeTxn,
+	})
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	return rv
 }
@@ -44,11 +66,13 @@ func open(t *testing.T, mo store.MergeOperator) store.KVStore {
 func cleanup(t *testing.T, s store.KVStore) {
 	err := s.Close()
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return
 	}
 	err = os.RemoveAll("test")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return
 	}
 }
 
@@ -115,24 +139,37 @@ func TestBadgerDBConfig(t *testing.T) {
 	opt.Dir = path
 	db, _ := badger.Open(opt)
 
+	var writeTxn *badger.Txn
+
 	var tests = []struct {
-		in                   map[string]interface{}
-		name                 string
-		primaryEncryptionKey [32]byte
-		indexPrefixID        []byte
-		db                   *badger.DB
+		in            map[string]interface{}
+		name          string
+		indexPrefixID []byte
+		db            *badger.DB
 	}{
 		{
-			map[string]interface{}{"path": "test", "prefix": []byte{1, 9}, "db": db, "key": [32]byte{}},
+			map[string]interface{}{
+				"path":     "test",
+				"prefix":   []byte{1, 9},
+				"db":       db,
+				"encrypt":  encryptFunc,
+				"decrypt":  decryptFunc,
+				"writeTxn": writeTxn,
+			},
 			"test",
-			[32]byte{},
 			[]byte{1, 9},
 			db,
 		},
 		{
-			map[string]interface{}{"path": "test 2", "prefix": []byte{2, 5}, "db": db, "key": [32]byte{}},
+			map[string]interface{}{
+				"path":     "test 2",
+				"prefix":   []byte{2, 5},
+				"db":       db,
+				"encrypt":  encryptFunc,
+				"decrypt":  decryptFunc,
+				"writeTxn": writeTxn,
+			},
 			"test 2",
-			[32]byte{},
 			[]byte{2, 5},
 			db,
 		},
@@ -141,23 +178,25 @@ func TestBadgerDBConfig(t *testing.T) {
 	for _, test := range tests {
 		kv, err := New(nil, test.in)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		bs, ok := kv.(*Store)
 		if !ok {
-			t.Fatal("failed type assertion to *boltdb.Store")
+			t.Error("failed type assertion to *boltdb.Store")
+			return
 		}
 		if bs.name != test.name {
-			t.Fatalf("path: expected %q, got %q", test.name, bs.name)
+			t.Errorf("path: expected %q, got %q", test.name, bs.name)
+			return
 		}
 		if !reflect.DeepEqual(bs.indexPrefixID, test.indexPrefixID) {
-			t.Fatalf("prefix: expected %X, got %X", test.indexPrefixID, bs.indexPrefixID)
+			t.Errorf("prefix: expected %X, got %X", test.indexPrefixID, bs.indexPrefixID)
+			return
 		}
 		if bs.db != test.db {
-			t.Fatalf("db: expected %v, got %v", test.db, bs.db)
-		}
-		if bs.primaryEncryptionKey != test.primaryEncryptionKey {
-			t.Fatalf("key: expected %X, got %X", test.primaryEncryptionKey, bs.primaryEncryptionKey)
+			t.Errorf("db: expected %v, got %v", test.db, bs.db)
+			return
 		}
 	}
 }

@@ -19,8 +19,6 @@ import (
 
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/dgraph-io/badger"
-
-	"github.com/alexandrestein/gotinydb/cipher"
 )
 
 type Writer struct {
@@ -69,7 +67,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 				return
 			}
 
-			existingVal, err = cipher.Decrypt(w.store.primaryEncryptionKey, storeID, encryptedValue)
+			existingVal, err = w.store.decrypt(storeID, encryptedValue)
 			if err != nil {
 				return
 			}
@@ -81,7 +79,8 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, mergedVal))
+		err = txn.Set(storeID, w.store.encrypt(storeID, mergedVal))
+		// err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, mergedVal))
 		if err != nil {
 			return
 		}
@@ -91,7 +90,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		storeID := w.store.buildID(op.K)
 
 		if op.V != nil {
-			err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, op.V))
+			err = txn.Set(storeID, w.store.encrypt(storeID, op.V))
 			if err != nil {
 				return
 			}

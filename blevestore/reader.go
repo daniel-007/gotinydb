@@ -17,8 +17,6 @@ package blevestore
 import (
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/dgraph-io/badger"
-
-	"github.com/alexandrestein/gotinydb/cipher"
 )
 
 type Reader struct {
@@ -43,7 +41,7 @@ func (r *Reader) get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return cipher.Decrypt(r.store.primaryEncryptionKey, storeKey, rv)
+	return r.store.decrypt(storeKey, rv)
 }
 func (r *Reader) Get(key []byte) (ret []byte, err error) {
 	return r.get(key)

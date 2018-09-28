@@ -16,12 +16,14 @@ const (
 
 type Store struct {
 	// name is defined by the path
-	name                 string
-	primaryEncryptionKey [32]byte
-	indexPrefixID        []byte
-	indexPrefixIDLen     int
-	db                   *badger.DB
-	mo                   store.MergeOperator
+	name             string
+	writeTxn         *badger.Txn
+	encrypt          func(dbID, clearContent []byte) (encryptedContent []byte)
+	decrypt          func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error)
+	indexPrefixID    []byte
+	indexPrefixIDLen int
+	db               *badger.DB
+	mo               store.MergeOperator
 }
 
 func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, error) {
@@ -43,18 +45,30 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 		return nil, fmt.Errorf("must specify a db")
 	}
 
-	primaryEncryptionKey, ok := config["key"].([32]byte)
+	encrypt, ok := config["encrypt"].(func(dbID, clearContent []byte) []byte)
 	if !ok {
-		return nil, fmt.Errorf("must specify a key as [32]byte")
+		return nil, fmt.Errorf("1")
+	}
+
+	decrypt, ok := config["decrypt"].(func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error))
+	if !ok {
+		return nil, fmt.Errorf("2")
+	}
+
+	writeTxn, ok := config["writeTxn"].(*badger.Txn)
+	if !ok {
+		return nil, fmt.Errorf("3")
 	}
 
 	rv := Store{
-		name:                 path,
-		indexPrefixID:        prefixID,
-		indexPrefixIDLen:     len(prefixID),
-		primaryEncryptionKey: primaryEncryptionKey,
-		db:                   db,
-		mo:                   mo,
+		name:             path,
+		indexPrefixID:    prefixID,
+		indexPrefixIDLen: len(prefixID),
+		writeTxn:         writeTxn,
+		encrypt:          encrypt,
+		decrypt:          decrypt,
+		db:               db,
+		mo:               mo,
 	}
 	return &rv, nil
 }
