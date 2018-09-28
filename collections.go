@@ -145,8 +145,20 @@ func (c *Collection) GetIDs(startID string, limit int) ([]string, error) {
 
 // GetValues returns a list of IDs and values as bytes for the given collection and starting
 // at the given ID. The limit paramiter let caller ask for a portion of the collection.
-func (c *Collection) GetValues(startID string, limit int) ([]*ResponseElem, error) {
-	return c.getStoredIDsAndValues(startID, limit, false)
+func (c *Collection) GetValues(startID string, limit int) (ids []string, content [][]byte, _ error) {
+	response, err := c.getStoredIDsAndValues(startID, limit, false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ids = make([]string, len(response))
+	content = make([][]byte, len(response))
+	for i, r := range response {
+		ids[i] = r.GetID()
+		content[i] = r.GetContent()
+	}
+
+	return
 }
 
 // Rollback reset content to a previous version for the given key.
@@ -239,13 +251,17 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 
 	i.kvConfig = c.buildKvConfig(i.Prefix)
 
-	// bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, boltdb.Name, i.kvConfig)
 	bleveIndex, err := bleve.NewUsing(i.Path, bleveMapping, upsidedown.Name, blevestore.Name, i.kvConfig)
 	if err != nil {
 		return err
 	}
 
 	i.index = bleveIndex
+
+	i.IndexDirZip, err = indexZiper(i.Path)
+	if err != nil {
+		return err
+	}
 
 	c.indexes = append(c.indexes, i)
 

@@ -103,3 +103,8 @@ const (
 	prefixBleve
 	prefixFile
 )
+
+// Those constants defines the internal prefixes for management
+const (
+	internalPrefixUsers byte = iota
+)

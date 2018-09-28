@@ -2,6 +2,7 @@ package gotinydb
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"reflect"
 	"sync"
@@ -296,8 +297,7 @@ func TestCollection_GetIDsAndValues(t *testing.T) {
 	var ids []string
 	ids, _ = c.GetIDs("", len(users))
 
-	var values []*ResponseElem
-	values, _ = c.GetValues("", len(users))
+	getIDs, values, _ := c.GetValues("", len(users))
 
 	if len(users) != len(ids) || len(users) != len(values) {
 		t.Errorf("the length of the returned elements are not what is expected\n\tnumbers of users: %d\n\tnumbers of ids: %d\n\tnumbers of values: %d", len(users), len(ids), len(values))
@@ -306,14 +306,14 @@ func TestCollection_GetIDsAndValues(t *testing.T) {
 
 	for i := range ids {
 		userFromValues := &User{}
-		err = values[i].Unmarshal(userFromValues)
+		err = json.Unmarshal(values[i], userFromValues)
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		if ids[i] != values[i].GetID() {
-			t.Errorf("the IDs are not equal: %q and %q", ids[i], values[i].GetID())
+		if ids[i] != getIDs[i] {
+			t.Errorf("the IDs are not equal: %q and %q", ids[i], getIDs[i])
 			return
 		}
 	}

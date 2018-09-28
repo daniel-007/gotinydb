@@ -284,7 +284,22 @@ func (d *DB) Load(r io.Reader) error {
 
 	d.collections = nil
 
-	return d.loadCollections()
+	err = d.loadCollections()
+	if err != nil {
+		return err
+	}
+
+	for _, c := range d.collections {
+		for _, i := range c.indexes {
+			err = indexDeziper(i.Path, i.IndexDirZip)
+			// err = ioutil.WriteFile(i.Path, i.indexDirZip, 0740)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetCollections returns all collection pointers

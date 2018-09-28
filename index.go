@@ -36,6 +36,7 @@ func (c *Collection) Search(indexName string, searchRequest *bleve.SearchRequest
 	if err != nil {
 		return nil, err
 	}
+	ret.c = c
 
 	return ret, nil
 }

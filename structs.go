@@ -82,9 +82,10 @@ type (
 	}
 
 	index struct {
-		Name   string
-		Prefix byte
-		Path   string
+		Name        string
+		Prefix      byte
+		Path        string
+		IndexDirZip []byte
 
 		kvConfig map[string]interface{}
 
@@ -124,14 +125,14 @@ type (
 		invert bool
 	}
 
-	// Response holds the results of a query
-	Response struct {
-		list           []*ResponseElem
+	// response holds the results of a query
+	response struct {
+		list           []*responseElem
 		actualPosition int
 	}
 
-	// ResponseElem defines the response as a pointer
-	ResponseElem struct {
+	// responseElem defines the response as a pointer
+	responseElem struct {
 		_ID            *idType
 		contentAsBytes []byte
 	}
