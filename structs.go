@@ -20,6 +20,7 @@ type (
 		freePrefix []byte
 
 		writeTransactionChan chan *writeTransaction
+		writeTxn             *badger.Txn
 
 		ctx     context.Context
 		closing bool
@@ -75,6 +76,7 @@ type (
 		store *badger.DB
 
 		writeTransactionChan chan *writeTransaction
+		writeTxn             *badger.Txn
 
 		ctx context.Context
 
@@ -88,6 +90,7 @@ type (
 		IndexDirZip []byte
 
 		kvConfig map[string]interface{}
+		writeTxn *badger.Txn
 
 		collectionPrefix byte
 

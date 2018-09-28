@@ -17,6 +17,7 @@ package blevestore
 import (
 	"fmt"
 
+	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/dgraph-io/badger"
 )
@@ -39,17 +40,26 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		return fmt.Errorf("wrong type of batch")
 	}
 
-	txn := w.store.db.NewTransaction(true)
-	// defer function to ensure that once started,
-	// we either Commit tx or Rollback
-	defer func() {
-		// if nothing went wrong, commit
-		if err == nil {
-			// careful to catch error here too
-			err = txn.Commit(nil)
-		}
-		txn.Discard()
-	}()
+	// txn := w.store.db.NewTransaction(true)
+	localTxn := false
+	txn := w.store.writeTxn
+	if txn == nil {
+		txn = w.store.db.NewTransaction(true)
+		localTxn = true
+	}
+
+	if localTxn {
+		// defer function to ensure that once started,
+		// we either Commit tx or Rollback
+		defer func() {
+			// if nothing went wrong, commit
+			if err == nil {
+				// careful to catch error here too
+				err = txn.Commit(nil)
+			}
+			txn.Discard()
+		}()
+	}
 
 	for k, mergeOps := range emulatedBatch.Merger.Merges {
 		kb := []byte(k)
@@ -67,7 +77,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 				return
 			}
 
-			existingVal, err = w.store.decrypt(storeID, encryptedValue)
+			existingVal, err = cipher.Decrypt(*w.store.primaryEncryptionKey, storeID, encryptedValue)
 			if err != nil {
 				return
 			}
@@ -79,8 +89,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 			return
 		}
 
-		err = txn.Set(storeID, w.store.encrypt(storeID, mergedVal))
-		// err = txn.Set(storeID, cipher.Encrypt(w.store.primaryEncryptionKey, storeID, mergedVal))
+		err = txn.Set(storeID, cipher.Encrypt(*w.store.primaryEncryptionKey, storeID, mergedVal))
 		if err != nil {
 			return
 		}
@@ -90,7 +99,7 @@ func (w *Writer) ExecuteBatch(batch store.KVBatch) (err error) {
 		storeID := w.store.buildID(op.K)
 
 		if op.V != nil {
-			err = txn.Set(storeID, w.store.encrypt(storeID, op.V))
+			err = txn.Set(storeID, cipher.Encrypt(*w.store.primaryEncryptionKey, storeID, op.V))
 			if err != nil {
 				return
 			}

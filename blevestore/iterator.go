@@ -17,6 +17,7 @@ package blevestore
 import (
 	"bytes"
 
+	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/dgraph-io/badger"
 )
 
@@ -83,7 +84,8 @@ func (i *Iterator) Value() []byte {
 	encryptVal, _ = item.ValueCopy(encryptVal)
 
 	val := []byte{}
-	val, _ = i.store.decrypt(item.Key(), encryptVal)
+	val, _ = cipher.Decrypt(*i.store.primaryEncryptionKey, item.Key(), encryptVal)
+	// val, _ = i.store.decrypt(item.Key(), encryptVal)
 
 	return val
 }

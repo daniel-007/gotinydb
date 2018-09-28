@@ -16,14 +16,13 @@ const (
 
 type Store struct {
 	// name is defined by the path
-	name             string
-	writeTxn         *badger.Txn
-	encrypt          func(dbID, clearContent []byte) (encryptedContent []byte)
-	decrypt          func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error)
-	indexPrefixID    []byte
-	indexPrefixIDLen int
-	db               *badger.DB
-	mo               store.MergeOperator
+	name                 string
+	writeTxn             *badger.Txn
+	primaryEncryptionKey *[32]byte
+	indexPrefixID        []byte
+	indexPrefixIDLen     int
+	db                   *badger.DB
+	mo                   store.MergeOperator
 }
 
 func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, error) {
@@ -45,15 +44,20 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 		return nil, fmt.Errorf("must specify a db")
 	}
 
-	encrypt, ok := config["encrypt"].(func(dbID, clearContent []byte) []byte)
+	primaryEncryptionKey, ok := config["key"].(*[32]byte)
 	if !ok {
-		return nil, fmt.Errorf("the encrypt function must be provided")
+		return nil, fmt.Errorf("must specify a key as [32]byte")
 	}
 
-	decrypt, ok := config["decrypt"].(func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error))
-	if !ok {
-		return nil, fmt.Errorf("the decrypt function must be provided")
-	}
+	// encrypt, ok := config["encrypt"].(func(dbID, clearContent []byte) []byte)
+	// if !ok {
+	// 	return nil, fmt.Errorf("the encrypt function must be provided")
+	// }
+
+	// decrypt, ok := config["decrypt"].(func(dbID, encryptedContent []byte) (decryptedContent []byte, _ error))
+	// if !ok {
+	// 	return nil, fmt.Errorf("the decrypt function must be provided")
+	// }
 
 	writeTxn, ok := config["writeTxn"].(*badger.Txn)
 	if !ok {
@@ -61,14 +65,13 @@ func New(mo store.MergeOperator, config map[string]interface{}) (store.KVStore, 
 	}
 
 	rv := Store{
-		name:             path,
-		indexPrefixID:    prefixID,
-		indexPrefixIDLen: len(prefixID),
-		writeTxn:         writeTxn,
-		encrypt:          encrypt,
-		decrypt:          decrypt,
-		db:               db,
-		mo:               mo,
+		name:                 path,
+		indexPrefixID:        prefixID,
+		indexPrefixIDLen:     len(prefixID),
+		primaryEncryptionKey: primaryEncryptionKey,
+		writeTxn:             writeTxn,
+		db:                   db,
+		mo:                   mo,
 	}
 	return &rv, nil
 }

@@ -15,6 +15,7 @@ package blevestore
 // limitations under the License.
 
 import (
+	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/dgraph-io/badger"
 )
@@ -41,7 +42,8 @@ func (r *Reader) get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return r.store.decrypt(storeKey, rv)
+	return cipher.Decrypt(*r.store.primaryEncryptionKey, storeKey, rv)
+	// return r.store.decrypt(storeKey, rv)
 }
 func (r *Reader) Get(key []byte) (ret []byte, err error) {
 	return r.get(key)

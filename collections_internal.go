@@ -204,7 +204,18 @@ func (c *Collection) isRunning() bool {
 
 func (c *Collection) buildKvConfig(indexPrefix byte) map[string]interface{} {
 	collectionAndIndexPrefix := []byte{c.prefix, indexPrefix}
-	return map[string]interface{}{"path": "test", "prefix": collectionAndIndexPrefix, "db": c.store, "key": c.options.privateCryptoKey}
+	return map[string]interface{}{
+		"path":   "test",
+		"prefix": collectionAndIndexPrefix,
+		"db":     c.store,
+		"encrypt": func(dbID, clearContent []byte) []byte {
+			return cipher.Encrypt(c.options.CryptoKey, dbID, clearContent)
+		},
+		"decrypt": func(dbID, encryptedContent []byte) ([]byte, error) {
+			return cipher.Decrypt(c.options.CryptoKey, dbID, encryptedContent)
+		},
+		"writeTxn": c.writeTxn,
+	}
 }
 
 func (c *Collection) getIndex(name string) (*index, error) {

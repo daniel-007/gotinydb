@@ -15,6 +15,7 @@
 package blevestore
 
 import (
+	"crypto/rand"
 	"os"
 	"reflect"
 	"testing"
@@ -23,20 +24,20 @@ import (
 
 	"github.com/blevesearch/bleve/index/store"
 	"github.com/blevesearch/bleve/index/store/test"
-
-	"github.com/alexandrestein/gotinydb/cipher"
 )
 
-var (
-	key = [32]byte{}
+var key = [32]byte{}
 
-	encryptFunc = func(dbID, clearContent []byte) (encryptedContent []byte) {
-		return cipher.Encrypt(key, dbID, clearContent)
-	}
-	decryptFunc = func(dbID, encryptedContent []byte) (clearContent []byte, _ error) {
-		return cipher.Decrypt(key, dbID, encryptedContent)
-	}
-)
+// var (
+// 	key = [32]byte{}
+
+// 	encryptFunc = func(dbID, clearContent []byte) (encryptedContent []byte) {
+// 		return cipher.Encrypt(key, dbID, clearContent)
+// 	}
+// 	decryptFunc = func(dbID, encryptedContent []byte) (clearContent []byte, _ error) {
+// 		return cipher.Decrypt(key, dbID, encryptedContent)
+// 	}
+// )
 
 func open(t *testing.T, mo store.MergeOperator) store.KVStore {
 	opt := badger.DefaultOptions
@@ -53,13 +54,21 @@ func open(t *testing.T, mo store.MergeOperator) store.KVStore {
 		"path":     "test",
 		"prefix":   []byte{1, 9},
 		"db":       db,
-		"encrypt":  encryptFunc,
-		"decrypt":  decryptFunc,
+		"key":      &key,
 		"writeTxn": writeTxn,
 	})
+	// rv, err = New(mo, map[string]interface{}{
+	// 	"path":     "test",
+	// 	"prefix":   []byte{1, 9},
+	// 	"db":       db,
+	// 	"writeTxn": writeTxn,
+	// })
 	if err != nil {
 		t.Error(err)
 	}
+
+	rand.Read(key[:])
+
 	return rv
 }
 
@@ -152,8 +161,7 @@ func TestBadgerDBConfig(t *testing.T) {
 				"path":     "test",
 				"prefix":   []byte{1, 9},
 				"db":       db,
-				"encrypt":  encryptFunc,
-				"decrypt":  decryptFunc,
+				"key":      &[32]byte{},
 				"writeTxn": writeTxn,
 			},
 			"test",
@@ -164,9 +172,8 @@ func TestBadgerDBConfig(t *testing.T) {
 			map[string]interface{}{
 				"path":     "test 2",
 				"prefix":   []byte{2, 5},
+				"key":      &[32]byte{},
 				"db":       db,
-				"encrypt":  encryptFunc,
-				"decrypt":  decryptFunc,
 				"writeTxn": writeTxn,
 			},
 			"test 2",
