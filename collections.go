@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/alexandrestein/gotinydb/blevestore"
@@ -228,6 +229,8 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 
 	// Set the prefix
 	i.Prefix = c.freePrefix[0]
+	i.collectionPrefix = c.prefix
+
 	// Remove the prefix from the list of free prefixes
 	c.freePrefix = append(c.freePrefix[:0], c.freePrefix[1:]...)
 
@@ -269,29 +272,37 @@ func (c *Collection) DeleteIndex(name string) error {
 	var index *index
 	// Loop all indexes to found the given index
 	found := false
+	foundAt := 0
 	for j, i := range c.indexes {
 		if i.Name == name {
 			index = i
 			found = true
+			foundAt = j
 
-			// Clean the slice of indexes
-			copy(c.indexes[j:], c.indexes[j+1:])
-			c.indexes[len(c.indexes)-1] = nil // or the zero value of T
-			c.indexes = c.indexes[:len(c.indexes)-1]
 			break
 		}
 	}
 
+	// If the index was not part of the collection
 	if !found {
 		return ErrIndexNotFound
 	}
 
-	return c.store.Update(func(txn *badger.Txn) error {
+	// Remove the bleve index file
+	os.RemoveAll(index.Path)
+
+	// Track if the job is over
+	done := false
+deleteMore:
+	// Removes the index elements
+	err := c.store.Update(func(txn *badger.Txn) error {
 		opt := badger.DefaultIteratorOptions
 		opt.PrefetchValues = false
 		iter := txn.NewIterator(opt)
 		defer iter.Close()
 
+		counter := 1
+		// Loop to found all element to remove
 		for iter.Seek(index.buildPrefix()); iter.ValidForPrefix(index.buildPrefix()); iter.Next() {
 			item := iter.Item()
 
@@ -301,8 +312,33 @@ func (c *Collection) DeleteIndex(name string) error {
 			if err != nil {
 				return err
 			}
+
+			// If 10 thouzen element are ready for delete commit the transaction and start a new one
+			if counter%10000 == 0 {
+				return nil
+			}
+			counter++
 		}
+
+		// Notify removing is done
+		done = true
 		return nil
 	})
-}
+	// Check for delete or commit error
+	if err != nil {
+		return err
+	}
 
+	// If not done go for an other loop
+	if !done {
+		goto deleteMore
+	}
+
+	// Clean the slice of indexes
+	copy(c.indexes[foundAt:], c.indexes[foundAt+1:])
+	c.indexes[len(c.indexes)-1] = nil // or the zero value of T
+	c.indexes = c.indexes[:len(c.indexes)-1]
+
+	// Job is done without issue
+	return nil
+}

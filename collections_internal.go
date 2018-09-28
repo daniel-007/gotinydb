@@ -241,4 +241,3 @@ func (c *Collection) getIndex(name string) (*index, error) {
 
 	return index, nil
 }
-

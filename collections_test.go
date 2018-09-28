@@ -250,6 +250,12 @@ func TestCollection_DeleteIndex(t *testing.T) {
 		t.Error("the index does not exist and this must return an error")
 		return
 	}
+
+	err = c.SetIndex(indexName, bleve.NewIndexMapping())
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }
 
 func TestCollection_GetIDsAndValues(t *testing.T) {

@@ -93,6 +93,19 @@ type (
 		index bleve.Index
 	}
 
+	// SearchResult is returned when (*Collection).Shearch is call.
+	// It contains the result and a iterator for the reading values directly from database.
+	SearchResult struct {
+		BleveSearchResult *bleve.SearchResult
+
+		position uint64
+		c        *Collection
+
+		// preload      uint
+		// preloaded    [][]byte
+		// preloadedErr []error
+	}
+
 	// idType is a type to order IDs during query to be compatible with the tree query
 	idType struct {
 		ID          string

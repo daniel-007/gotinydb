@@ -84,6 +84,8 @@ var (
 	ErrIndexNameAllreadyExists = fmt.Errorf("index in this collection with same name exists")
 	// ErrIndexLimit is returned when the caller exceed the limit of indexes which is 256 indexes per collection
 	ErrIndexLimit = fmt.Errorf("there is no left prefix for this index")
+	// ErrSearchOver is returned when *SearchResult.Next is called but there is no more ID to retrieve
+	ErrSearchOver = fmt.Errorf("results done")
 	// ErrEmptyID defines error when the given id is empty
 	ErrEmptyID = fmt.Errorf("empty ID")
 	// ErrTimeOut defines the error when the query is timed out
