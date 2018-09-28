@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/alexandrestein/gotinydb/compare/v0.2.2...dev)
 
+### Changed
+
+- Remove home made indexing to use [Bleve](https://github.com/blevesearch/bleve) exclusively.
+
 ## [[0.2.2]](https://github.com/alexandrestein/gotinydb/compare/v0.2.1...v0.2.2) - 2018-09-21
 
 ### Changed
