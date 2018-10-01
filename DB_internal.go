@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -180,14 +181,20 @@ func (d *DB) writeOneTransaction(ctx context.Context, txn *badger.Txn, wtElem *w
 		}
 
 		go func() {
-			request := <-d.writeIndexChan
-			d.badgerDB.Update(func(txn *badger.Txn) error {
+			for {
+				fmt.Println("db wait request")
+				request, ok := <-d.writeIndexChan
+				if !ok {
+					fmt.Println("db break")
+					break
+				}
+				fmt.Println("db had request ")
 				err := txn.Set(request.ID, request.Content)
 
+				fmt.Println("db send response")
 				request.ResponseChan <- err
-
-				return err
-			})
+				fmt.Println("db response sent")
+			}
 		}()
 
 		// Starts the indexing process

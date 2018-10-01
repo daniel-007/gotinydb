@@ -250,17 +250,24 @@ func (c *Collection) SetIndex(name string, bleveMapping mapping.IndexMapping) er
 	i.Path = c.options.Path + "/" + c.name + "/" + name
 
 	go func() {
-		fmt.Println("wait")
-		request := <-c.writeIndexChan
-		fmt.Println("had", request)
-		fmt.Printf("%p\n", c.writeIndexChan)
-		c.store.Update(func(txn *badger.Txn) error {
-			err := txn.Set(request.ID, request.Content)
+		for {
+			fmt.Println("col wait for request")
+			request, ok := <-c.writeIndexChan
+			if !ok {
+				fmt.Println("col chan closed")
+				break
+			}
+			fmt.Println("col run update")
+			c.store.Update(func(txn *badger.Txn) error {
+				err := txn.Set(request.ID, request.Content)
 
-			request.ResponseChan <- err
+				fmt.Println("col send response")
+				request.ResponseChan <- err
+				fmt.Println("col response sent")
 
-			return err
-		})
+				return err
+			})
+		}
 	}()
 
 	i.kvConfig = c.buildKvConfig(i.Prefix)

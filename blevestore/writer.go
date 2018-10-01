@@ -33,15 +33,11 @@ func (w *Writer) NewBatch() store.KVBatch {
 func (w *Writer) set(dbID, content []byte) error {
 	req := NewBleveStoreWriteRequest(dbID, content)
 
-	fmt.Println("Sending for response")
-	fmt.Printf("%p\n", w.store.config.bleveWriteChan)
-
-	// debug.PrintStack()
+	fmt.Println("writer send")
 	w.store.config.bleveWriteChan <- req
 
-	fmt.Println("wait for response")
+	fmt.Println("writer wait err")
 	err := <-req.ResponseChan
-	fmt.Println("err", err)
 
 	return err
 }
