@@ -16,7 +16,7 @@ func TestServer(t *testing.T) {
 	serverCert, _ := ca.NewCert(time.Hour, "server")
 	clientCert, _ := ca.NewCert(time.Hour, "client")
 
-	s, err := securelink.NewServer(":1323", serverCert)
+	s, err := securelink.NewServer(serverCert, ":1323")
 	if err != nil {
 		t.Fatal(err)
 	}

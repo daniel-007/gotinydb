@@ -21,6 +21,7 @@ require (
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
+	github.com/satori/go.uuid v0.0.0-00000000000000-b2ce2384e17bbe0c6d34077efa39dbab3e09123b
 	github.com/steveyen/gtreap v0.0.0-20150807155958-0abe01ef9be2 // indirect
 	github.com/tinylib/msgp v1.0.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

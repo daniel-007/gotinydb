@@ -11,18 +11,18 @@ type (
 	// Server start a web server which accept only connection with a client certificate
 	// with the same CA as the server
 	Server struct {
-		Address     string
+		Port        string
 		Echo        *echo.Echo
 		Certificate *Certificate
 	}
 )
 
 // NewServer initiates the server at the given address
-func NewServer(address string, certificate *Certificate) (*Server, error) {
+func NewServer(certificate *Certificate, port string) (*Server, error) {
 	e := echo.New()
 
 	return &Server{
-		Address:     address,
+		Port:        port,
 		Echo:        e,
 		Certificate: certificate,
 	}, nil
@@ -37,7 +37,7 @@ func (s *Server) Start() error {
 	}
 	s.Echo.TLSServer.TLSConfig = serverTLSConfig
 
-	tlsListener, err := tls.Listen("tcp", s.Address, serverTLSConfig)
+	tlsListener, err := tls.Listen("tcp", s.Port, serverTLSConfig)
 	if err != nil {
 		return err
 	}

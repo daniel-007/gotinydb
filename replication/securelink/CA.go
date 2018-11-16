@@ -22,6 +22,7 @@ type (
 		PrivateKey *ecdsa.PrivateKey
 
 		CertPool *x509.CertPool
+		IsCA     bool
 	}
 
 	// CA provides new Certificate pointers
@@ -76,12 +77,16 @@ func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
 		return nil, err
 	}
 
-	return &CA{
+	ca := &CA{
 		&Certificate{
 			Cert:       cert,
 			PrivateKey: privateKey,
+			IsCA:       true,
 		},
-	}, nil
+	}
+	ca.CertPool = ca.GetCertPool()
+
+	return ca, nil
 }
 
 // NewCert returns a new certificate pointer which can be used for tls connection
@@ -114,6 +119,7 @@ func (c *CA) NewCert(lifeTime time.Duration, names ...string) (*Certificate, err
 		Cert:       cert,
 		PrivateKey: privateKey,
 		CertPool:   c.GetCertPool(),
+		IsCA:       false,
 	}, nil
 }
 
