@@ -21,6 +21,7 @@ import (
 
 	"github.com/alexandrestein/gotinydb/blevestore"
 	"github.com/alexandrestein/gotinydb/cipher"
+	"github.com/alexandrestein/gotinydb/replication"
 	"github.com/alexandrestein/gotinydb/transaction"
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
@@ -48,6 +49,8 @@ type (
 		Collections []*Collection
 
 		writeChan chan *transaction.Transaction
+
+		Replication replication.Replication
 	}
 
 	dbElement struct {
