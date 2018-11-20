@@ -27,7 +27,7 @@ type (
 		Certificate *Certificate
 	}
 
-	newConnectionRequest struct {
+	NewConnectionRequest struct {
 		ID              string
 		IssuerID        string
 		IssuerAddresses []string
@@ -119,9 +119,15 @@ func getAddresses() ([]string, error) {
 				continue
 			}
 
+			ipAsString = ip.String()
+			ip2 := net.ParseIP(ipAsString)
+			if to4 := ip2.To4(); to4 == nil {
+				ipAsString = "[" + ipAsString + "]"
+			}
+
 			// If ip accessible from outside
 			if ip.IsGlobalUnicast() {
-				ret = append(ret, ip.String())
+				ret = append(ret, ipAsString)
 			}
 		}
 	}
@@ -152,7 +158,7 @@ func (s *Server) GetToken() (string, error) {
 	return serialized, nil
 }
 
-func (s *Server) ReadToken(token string, verify bool) (_ *newConnectionRequest, signature []byte, _ error) {
+func (s *Server) ReadToken(token string, verify bool) (_ *NewConnectionRequest, signature []byte, _ error) {
 	object, err := jose.ParseSigned(token)
 	if err != nil {
 		return nil, nil, err
@@ -170,7 +176,7 @@ func (s *Server) ReadToken(token string, verify bool) (_ *newConnectionRequest, 
 
 	signature = object.Signatures[0].Signature
 
-	values := new(newConnectionRequest)
+	values := new(NewConnectionRequest)
 	err = json.Unmarshal(output, values)
 	if err != nil {
 		return nil, nil, err
@@ -210,7 +216,7 @@ func (s *Server) buildNewConnectionRequest() (requestID string, reqAsJSON []byte
 
 	addresses, _ := s.GetAddresses()
 
-	req := &newConnectionRequest{
+	req := &NewConnectionRequest{
 		ID:              uuid.NewV4().String(),
 		IssuerID:        s.GetBigID().String(),
 		IssuerPort:      s.Port,
@@ -222,11 +228,11 @@ func (s *Server) buildNewConnectionRequest() (requestID string, reqAsJSON []byte
 	return req.ID, reqAsJSON
 }
 
-func GetClientCertificate(address, port, tokenString string, token *newConnectionRequest) (cert *Certificate, usedAddress string, _ error) {
-	ip := net.ParseIP(address)
-	if to4 := ip.To4(); to4 == nil {
-		address = "[" + address + "]"
-	}
+func GetClientCertificate(address, port, tokenString string, token *NewConnectionRequest) (cert *Certificate, usedAddress string, _ error) {
+	// ip := net.ParseIP(address)
+	// if to4 := ip.To4(); to4 == nil {
+	// 	address = "[" + address + "]"
+	// }
 
 	path := fmt.Sprintf("https://%s%s/%s/%s", address, port, APIVersion, PostCertificatePATH)
 	// fmt.Println("path", path)

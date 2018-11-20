@@ -16,9 +16,11 @@ type (
 
 // Defines constants to for the API path
 var (
-	APIVersion          = "v0.0.0"
+	APIVersion = "v0.0.0"
+
 	PostCertificatePATH = "newClient"
-	GetClusterMapPATH   = "map"
+	PostAddClientPATH   = "addClient"
+	// GetServerConnectivityPATH = "connectivity"
 
 	ServerIDHeadearName = "Server-Id"
 )
@@ -32,7 +34,8 @@ func (s *Server) settupHandlers() {
 	)
 
 	apiGroup.POST(PostCertificatePATH, handler.returnCert)
-	apiGroup.GET(GetClusterMapPATH, handler.clusterMap)
+	apiGroup.POST(PostAddClientPATH, handler.addClient)
+	// apiGroup.GET(GetServerConnectivityPATH, handler.serverConnectivity)
 }
 
 func (h *handler) returnCert(c echo.Context) error {
@@ -52,13 +55,32 @@ func (h *handler) returnCert(c echo.Context) error {
 	}
 	clientCertAsBytes := clientCert.Marshal()
 
-	return c.Blob(http.StatusOK, "text/json", clientCertAsBytes)
+	// savedPeer := &securecache.SavedPeer{
+	// 	Addrs: []string
+	// }
+	// securecache.PeersTable.Add(clientCert.Cert.SerialNumber, time.Hour*24*365*10, )
+
+	return c.JSONBlob(http.StatusOK, clientCertAsBytes)
 }
 
-func (h *handler) clusterMap(c echo.Context) error {
-	fmt.Println("map")
+func (h *handler) serverConnectivity(c echo.Context) error {
+	addrs, err := h.GetAddresses()
+	if err != nil {
+		return err
+	}
 
-	return c.JSON(http.StatusOK, nil)
+	ret := &struct {
+		Addrs []string
+		Port  string
+	}{
+		addrs, h.Port,
+	}
+
+	return c.JSON(http.StatusOK, ret)
+}
+
+func (h *handler) addClient(c echo.Context) error {
+	return nil
 }
 
 func (h *handler) verifyCertificateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

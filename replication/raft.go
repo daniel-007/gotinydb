@@ -21,6 +21,12 @@ type (
 		WriteSnapShot(raftpb.Snapshot)
 		WriteEntry(raftpb.Entry)
 	}
+
+	peer struct {
+		Addresses []string
+		Port      string
+		RaftPeer  *raft.Peer
+	}
 )
 
 func NewRaft(id uint64, peers []raft.Peer) *raftNode {
@@ -92,40 +98,22 @@ func (r *raftNode) Close() {
 
 func (r *raftNode) saveToStorage(hardState raftpb.HardState, entries []raftpb.Entry, snapshot raftpb.Snapshot) {
 	fmt.Println("saveToStorage")
+	fmt.Println("\thardState", hardState)
+	fmt.Println("\tentries", entries)
+	fmt.Println("\tsnapshot", snapshot)
 }
 
 func (r *raftNode) sendMessages(messages []raftpb.Message) {
-	fmt.Println("sendMessages")
+	fmt.Println("sendMessages", messages)
 	for i, message := range messages {
 		fmt.Println("m", i, message)
 	}
 }
 
 func (r *raftNode) processSnapshot(snapshot raftpb.Snapshot) {
-	fmt.Println("processSnapshot")
+	fmt.Println("processSnapshot", snapshot)
 }
 
 func (r *raftNode) processEntry(entry raftpb.Entry) {
-	fmt.Println("processEntry")
+	fmt.Println("processEntry", entry)
 }
-
-// func (r *raftNode) isHardStateEqual(previous, actual raftpb.HardState) bool {
-// 	fmt.Println("isHardStateEqual")
-// 	return false
-// }
-
-// func (r *raftNode) saveStateToDisk(raftpb.HardState) {
-// 	fmt.Println("saveStateToDisk")
-// }
-
-// func (r *raftNode) saveToDisk([]raftpb.Entry) {
-// 	fmt.Println("saveToDisk")
-// }
-
-// func (r *raftNode) applyToStore([]raftpb.Entry) {
-// 	fmt.Println("applyToStore")
-// }
-
-// func (r *raftNode) sendMessages([]raftpb.Message) {
-// 	fmt.Println("sendMessages")
-// }

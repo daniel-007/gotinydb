@@ -1,9 +1,14 @@
 package replication
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
+	"github.com/alexandrestein/gotinydb/replication/securelink/securecache"
 )
 
 type (
@@ -69,7 +74,7 @@ type (
 )
 
 func newNode(certificate *securelink.Certificate, port string) (*node, error) {
-	id := certificate.Cert.SerialNumber.String()
+	id := certificate.Cert.SerialNumber
 
 	server, err := securelink.NewServer(certificate, port)
 	if err != nil {
@@ -82,9 +87,18 @@ func newNode(certificate *securelink.Certificate, port string) (*node, error) {
 		return nil, err
 	}
 
+	link := &securecache.SavedPeer{
+		Addrs: addresses,
+		Port:  port,
+	}
+	securecache.PeersTable.Add(id.Int64(), time.Hour*24*365*10, link)
+
+	// peers := securecache.GetPeers()
+	// fmt.Println("peers", peers)
+
 	n := &node{
 		nodeExport: &nodeExport{
-			ID:        id,
+			ID:        id.String(),
 			Addresses: addresses,
 			Port:      port,
 		},
@@ -286,9 +300,9 @@ func Connect(token, localPort string) (Node, error) {
 
 	ok := false
 	var cert *securelink.Certificate
-	// var usedAddress string
+	var usedAddress string
 	for _, add := range values.IssuerAddresses {
-		ct, _, err := securelink.GetClientCertificate(add, values.IssuerPort, token, values)
+		ct, retAdd, err := securelink.GetClientCertificate(add, values.IssuerPort, token, values)
 		// ct, retAdd, err := getClientCertificate(add, values.IssuerPort, token, values)
 		if err != nil {
 			continue
@@ -296,12 +310,19 @@ func Connect(token, localPort string) (Node, error) {
 
 		ok = true
 		cert = ct
-		// usedAddress = retAdd
+		usedAddress = retAdd
 		break
 	}
 	if !ok {
 		return nil, fmt.Errorf("can't get certificate")
 	}
+
+	path := fmt.Sprintf("https://%s%s/%s/%s", usedAddress, values.IssuerPort, securelink.APIVersion, securelink.GetServerConnectivityPATH)
+	connector := securelink.NewConnector(values.IssuerID, cert)
+	// err = addPeerToList(connector, path)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	var n2 Node
 	n2, err = NewNode(cert, localPort)
@@ -309,21 +330,36 @@ func Connect(token, localPort string) (Node, error) {
 		return nil, err
 	}
 
-	// path := fmt.Sprintf("https://%s%s/%s/%s", usedAddress, values.Port, APIVersion, GetClusterMapPATH)
-	// // fmt.Println("path", path)
-
-	// connector := securelink.NewConnector(values.ID, cert)
-
 	// cache := cache2go.Cache(CacheValueConnectionsTable)
 	// var resp *http.Response
-	// resp, err = connector.Get(path)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	// cache.Add(n2.GetID(), time.hou)
 
 	return n2, err
+}
+
+func addPeerToList(cli *http.Client, path string) error {
+	// fmt.Println("path", path)
+	resp, err := cli.Get(path)
+	if err != nil {
+		return err
+	}
+
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	link := &securecache.SavedPeer{}
+	err = json.Unmarshal(body, link)
+	if err != nil {
+		return err
+	}
+
+	securecache.PeersTable.Add(resp.TLS.PeerCertificates[0].SerialNumber.Int64(), time.Hour*24*365*10, link)
+
+	return nil
 }
 
 // func getClientCertificate(address, port, tokenString string, token *newConnectionRequest) (cert *securelink.Certificate, usedAddress string, _ error) {
