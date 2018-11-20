@@ -1,44 +1,36 @@
 package replication_test
 
-import (
-	"testing"
-	"time"
+// func TestRaftNode(t *testing.T) {
+// 	ca, _ := securelink.NewCA(time.Hour, "master")
 
-	"github.com/alexandrestein/gotinydb/replication"
-	"github.com/alexandrestein/gotinydb/replication/securelink"
-)
+// 	masterNode, err := replication.NewMasterNode(ca, ":1323")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	go masterNode.GetServer().Start()
 
-func TestRaftNode(t *testing.T) {
-	ca, _ := securelink.NewCA(time.Hour, "master")
+// 	token, err := masterNode.GetToken()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	masterNode, err := replication.NewMasterNode(ca, ":1323")
-	if err != nil {
-		t.Fatal(err)
-	}
-	go masterNode.GetServer().Start()
+// 	var node1 replication.Node
+// 	node1, err = replication.Connect(token, ":1324")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	go node1.GetServer().Start()
 
-	token, err := masterNode.GetToken()
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	token, err = masterNode.GetToken()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	var node2 replication.Node
+// 	node2, err = replication.Connect(token, ":1325")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	go node2.GetServer().Start()
 
-	var node1 replication.Node
-	node1, err = replication.Connect(token, ":1324")
-	if err != nil {
-		t.Fatal(err)
-	}
-	go node1.GetServer().Start()
-
-	token, err = masterNode.GetToken()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var node2 replication.Node
-	node2, err = replication.Connect(token, ":1325")
-	if err != nil {
-		t.Fatal(err)
-	}
-	go node2.GetServer().Start()
-
-	time.Sleep(time.Second * 5)
-}
+// 	time.Sleep(time.Second * 5)
+// }

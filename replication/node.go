@@ -38,7 +38,7 @@ type (
 	MasterNode interface {
 		Node
 
-		GetCA() *securelink.CA
+		GetCA() *securelink.Certificate
 
 		GetToken() (string, error)
 		VerifyToken(serialized string) bool
@@ -109,8 +109,8 @@ func NewNode(certificate *securelink.Certificate, port string) (Node, error) {
 	return Node(n), nil
 }
 
-func NewMasterNode(certificate *securelink.CA, port string) (MasterNode, error) {
-	n, err := newNode(certificate.Certificate, port)
+func NewMasterNode(certificate *securelink.Certificate, port string) (MasterNode, error) {
+	n, err := newNode(certificate, port)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (n *node) UpdateCert(newCert *securelink.Certificate) {
 	n.Certificate = newCert
 }
 
-func (n *node) GetCA() *securelink.CA {
+func (n *node) GetCA() *securelink.Certificate {
 	if !n.IsMaster {
 		return nil
 	}
@@ -177,9 +177,7 @@ func (n *node) GetCA() *securelink.CA {
 		return nil
 	}
 
-	return &securelink.CA{
-		Certificate: n.Certificate,
-	}
+	return n.Certificate
 }
 
 func (n *node) GetPort() string {

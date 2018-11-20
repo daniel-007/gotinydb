@@ -2,10 +2,12 @@ package securelink
 
 import (
 	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"math"
 	"math/big"
-	"math/rand"
+	// "math/rand"
 	"net"
 	"time"
 )
@@ -23,7 +25,7 @@ var (
 
 // GetCertTemplate returns the base template for certification
 func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration) *x509.Certificate {
-	serial := big.NewInt(rand.Int63())
+	serial, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	names = append(names, serial.String())
 
 	return &x509.Certificate{

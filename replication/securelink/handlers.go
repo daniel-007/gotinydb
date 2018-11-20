@@ -3,6 +3,7 @@ package securelink
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo"
 )
@@ -41,7 +42,14 @@ func (h *handler) returnCert(c echo.Context) error {
 		return fmt.Errorf("the given token is not valid")
 	}
 
-	clientCert := h.Certificate
+	if !h.Certificate.IsCA {
+		return fmt.Errorf("the server is not a CA")
+	}
+
+	clientCert, err := h.Certificate.NewCert(time.Hour * 24 * 365 * 10)
+	if err != nil {
+		return err
+	}
 	clientCertAsBytes := clientCert.Marshal()
 
 	return c.Blob(http.StatusOK, "text/json", clientCertAsBytes)

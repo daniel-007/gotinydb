@@ -15,7 +15,7 @@ func TestServer(t *testing.T) {
 	ca, _ := securelink.NewCA(time.Hour*24, "ca")
 	clientCert, _ := ca.NewCert(time.Hour, "client")
 
-	s, err := securelink.NewServer(ca.Certificate, ":1323")
+	s, err := securelink.NewServer(ca, ":1323")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,13 +26,10 @@ func TestServer(t *testing.T) {
 
 	go func(s *securelink.Server) {
 		err = s.Start()
-		if err != nil {
-			t.Fatal(err)
-		}
 	}(s)
 
 	// Wait for the server to start
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Microsecond * 250)
 
 	cli := securelink.NewConnector(ca.Cert.SerialNumber.String(), clientCert)
 	var resp *http.Response
@@ -52,4 +49,6 @@ func TestServer(t *testing.T) {
 	if testing.Verbose() {
 		t.Logf("%d -> %s", n, string(buff[:n]))
 	}
+
+	s.Close()
 }

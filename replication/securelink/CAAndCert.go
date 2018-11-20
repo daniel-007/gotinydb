@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"time"
 )
 
@@ -28,9 +29,9 @@ type (
 	}
 
 	// CA provides new Certificate pointers
-	CA struct {
-		*Certificate
-	}
+	// CA struct {
+	// 	*Certificate
+	// }
 
 	certExport struct {
 		Cert       []byte
@@ -65,7 +66,7 @@ func buildKeyPEM(input []byte) []byte {
 // NewCA returns a new CA pointer which is supposed to be used as server certificate
 // and client and server certificate for remote instances.
 // names are used as domain names.
-func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
+func NewCA(lifeTime time.Duration, names ...string) (*Certificate, error) {
 	privateKey, err := genPrivateKey()
 	if err != nil {
 		return nil, err
@@ -85,13 +86,11 @@ func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
 		return nil, err
 	}
 
-	ca := &CA{
-		&Certificate{
-			Cert:       cert,
-			PrivateKey: privateKey,
-			CACert:     cert,
-			IsCA:       true,
-		},
+	ca := &Certificate{
+		Cert:       cert,
+		PrivateKey: privateKey,
+		CACert:     cert,
+		IsCA:       true,
 	}
 	ca.CertPool = ca.GetCertPool()
 
@@ -99,7 +98,11 @@ func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
 }
 
 // NewCert returns a new certificate pointer which can be used for tls connection
-func (c *CA) NewCert(lifeTime time.Duration, names ...string) (*Certificate, error) {
+func (c *Certificate) NewCert(lifeTime time.Duration, names ...string) (*Certificate, error) {
+	if !c.IsCA {
+		return nil, fmt.Errorf("this is not a CA")
+	}
+
 	privateKey, err := genPrivateKey()
 	if err != nil {
 		return nil, err
@@ -181,7 +184,10 @@ func (c *Certificate) GetTLSCertificate() tls.Certificate {
 }
 
 // GetCertPool is useful in tls.Config{RootCAs: ca.GetCertPool()}
-func (c *CA) GetCertPool() *x509.CertPool {
+func (c *Certificate) GetCertPool() *x509.CertPool {
+	if !c.IsCA {
+		return nil
+	}
 	pool := x509.NewCertPool()
 	pool.AddCert(c.Cert)
 

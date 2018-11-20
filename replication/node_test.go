@@ -35,10 +35,20 @@ func TestNodes(t *testing.T) {
 	}
 	defer node1.Close()
 
-	var node2 replication.Node
-	node2, err = replication.Connect(token, ":1325")
+	_, err = replication.Connect(token, ":1325")
 	if err == nil {
 		t.Fatal("the token must be expired")
+	}
+
+	token, err = masterNode.GetToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var node2 replication.Node
+	node2, err = replication.Connect(token, ":1325")
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer node2.Close()
 

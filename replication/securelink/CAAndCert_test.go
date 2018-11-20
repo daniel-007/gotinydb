@@ -22,7 +22,7 @@ func TestNewCA(t *testing.T) {
 	runClient(t, ca)
 }
 
-func listen(t *testing.T, ca *securelink.CA) {
+func listen(t *testing.T, ca *securelink.Certificate) {
 	serverTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{ca.GetTLSCertificate()},
 		ClientCAs:    ca.GetCertPool(),
@@ -60,7 +60,7 @@ func listen(t *testing.T, ca *securelink.CA) {
 	}(listener)
 }
 
-func runClient(t *testing.T, ca *securelink.CA) {
+func runClient(t *testing.T, ca *securelink.Certificate) {
 	cert, err := ca.NewCert(time.Minute, "client")
 	if err != nil {
 		t.Fatal(err)
