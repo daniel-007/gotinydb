@@ -16,18 +16,21 @@ require (
 	github.com/golang/protobuf v1.2.0 // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/labstack/echo v3.3.5+incompatible
-	github.com/labstack/gommon v0.2.8 // indirect
+	github.com/labstack/gommon v0.2.8
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
+	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
+	github.com/muesli/cache2go v0.0.0-20181026141944-493cbf51ac21
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
-	github.com/satori/go.uuid v0.0.0-00000000000000-b2ce2384e17bbe0c6d34077efa39dbab3e09123b
+	github.com/satori/go.uuid v1.2.0
 	github.com/steveyen/gtreap v0.0.0-20150807155958-0abe01ef9be2 // indirect
 	github.com/tinylib/msgp v1.0.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
 	github.com/willf/bitset v1.1.9 // indirect
-	golang.org/x/crypto v0.0.0-20181030102418-4d3f4d9ffa16
-	golang.org/x/net v0.0.0-20181102091132-c10e9556a7bc // indirect
-	golang.org/x/sys v0.0.0-20181031143558-9b800f95dbbc // indirect
+	golang.org/x/crypto v0.0.0-20181112202954-3d3f9f413869
+	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a // indirect
+	golang.org/x/sys v0.0.0-20181119195503-ec83556a53fe // indirect
+	gopkg.in/square/go-jose.v2 v2.1.9
 )

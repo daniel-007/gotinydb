@@ -13,10 +13,9 @@ import (
 
 func TestServer(t *testing.T) {
 	ca, _ := securelink.NewCA(time.Hour*24, "ca")
-	serverCert, _ := ca.NewCert(time.Hour, "server")
 	clientCert, _ := ca.NewCert(time.Hour, "client")
 
-	s, err := securelink.NewServer(serverCert, ":1323")
+	s, err := securelink.NewServer(ca.Certificate, ":1323")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +34,7 @@ func TestServer(t *testing.T) {
 	// Wait for the server to start
 	time.Sleep(time.Microsecond * 100)
 
-	cli := securelink.NewConnector("server", clientCert)
+	cli := securelink.NewConnector(ca.Cert.SerialNumber.String(), clientCert)
 	var resp *http.Response
 	resp, err = cli.Get("https://localhost:1323/")
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"time"
 )
@@ -21,6 +22,7 @@ type (
 		Cert       *x509.Certificate
 		PrivateKey *ecdsa.PrivateKey
 
+		CACert   *x509.Certificate
 		CertPool *x509.CertPool
 		IsCA     bool
 	}
@@ -28,6 +30,12 @@ type (
 	// CA provides new Certificate pointers
 	CA struct {
 		*Certificate
+	}
+
+	certExport struct {
+		Cert       []byte
+		PrivateKey []byte
+		CACert     []byte
 	}
 )
 
@@ -63,7 +71,7 @@ func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
 		return nil, err
 	}
 
-	certTemplate := getCertTemplate(true, names, nil, lifeTime)
+	certTemplate := GetCertTemplate(true, names, nil, lifeTime)
 
 	var certAsDER []byte
 	certAsDER, err = x509.CreateCertificate(rand.Reader, certTemplate, certTemplate, privateKey.Public(), privateKey)
@@ -81,6 +89,7 @@ func NewCA(lifeTime time.Duration, names ...string) (*CA, error) {
 		&Certificate{
 			Cert:       cert,
 			PrivateKey: privateKey,
+			CACert:     cert,
 			IsCA:       true,
 		},
 	}
@@ -100,7 +109,7 @@ func (c *CA) NewCert(lifeTime time.Duration, names ...string) (*Certificate, err
 	var certAsDER []byte
 	certAsDER, err = x509.CreateCertificate(
 		rand.Reader,
-		getCertTemplate(false, names, nil, lifeTime),
+		GetCertTemplate(false, names, nil, lifeTime),
 		c.Cert,
 		privateKey.Public(),
 		c.PrivateKey,
@@ -118,6 +127,7 @@ func (c *CA) NewCert(lifeTime time.Duration, names ...string) (*Certificate, err
 	return &Certificate{
 		Cert:       cert,
 		PrivateKey: privateKey,
+		CACert:     c.Cert,
 		CertPool:   c.GetCertPool(),
 		IsCA:       false,
 	}, nil
@@ -128,13 +138,40 @@ func (c *Certificate) GetCertPEM() []byte {
 	return buildCertPEM(c.Cert.Raw)
 }
 
+func (c *Certificate) getPrivateKeyDER() []byte {
+	curveAsBytes, _ := x509.MarshalECPrivateKey(c.PrivateKey)
+	return curveAsBytes
+}
+
 // GetPrivateKeyPEM is useful to start a new client or server with tls.X509KeyPair
 func (c *Certificate) GetPrivateKeyPEM() []byte {
-	curveAsBytes, _ := x509.MarshalECPrivateKey(c.PrivateKey)
-	return buildKeyPEM(
-		curveAsBytes,
-	)
+	return buildKeyPEM(c.getPrivateKeyDER())
 }
+
+// func (c *Certificate) MarshalRawKey() ([]byte, error) {
+// 	ret, err := x509.MarshalECPrivateKey(c.PrivateKey)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	c.RawKey = ret
+
+// 	return ret, nil
+// }
+
+// func (c *Certificate) UnmarshalRawKey(input []byte) error {
+// 	if input == nil || len(input) == 0 {
+// 		input = c.RawKey
+// 	}
+
+// 	key, err := x509.ParseECPrivateKey(input)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	c.PrivateKey = key
+// 	return nil
+// }
 
 // GetTLSCertificate is useful in
 // tls.Config{Certificates: []tls.Certificate{ca.GetTLSCertificate()}}
@@ -149,4 +186,56 @@ func (c *CA) GetCertPool() *x509.CertPool {
 	pool.AddCert(c.Cert)
 
 	return pool
+}
+
+// Marshal convert the Certificate pointer into a slice of byte for
+// transport or future use
+func (c *Certificate) Marshal() []byte {
+	export := &certExport{
+		Cert:       c.Cert.Raw,
+		PrivateKey: c.getPrivateKeyDER(),
+		CACert:     c.CACert.Raw,
+	}
+
+	ret, _ := json.Marshal(export)
+
+	return ret
+}
+
+// Unmarshal build a new Certificate pointer with the information given
+// by the input
+func Unmarshal(input []byte) (*Certificate, error) {
+	export := new(certExport)
+	err := json.Unmarshal(input, export)
+	if err != nil {
+		return nil, err
+	}
+
+	var cert *x509.Certificate
+	cert, err = x509.ParseCertificate(export.Cert)
+	if err != nil {
+		return nil, err
+	}
+
+	var privateKey *ecdsa.PrivateKey
+	privateKey, err = x509.ParseECPrivateKey(export.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	var caCert *x509.Certificate
+	caCert, err = x509.ParseCertificate(export.CACert)
+	if err != nil {
+		return nil, err
+	}
+	certPool.AddCert(caCert)
+
+	return &Certificate{
+		Cert:       cert,
+		PrivateKey: privateKey,
+		CACert:     caCert,
+		CertPool:   certPool,
+		IsCA:       cert.IsCA,
+	}, nil
 }

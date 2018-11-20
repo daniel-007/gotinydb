@@ -1,10 +1,26 @@
 package replication
 
 import (
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
-	uuid "github.com/satori/go.uuid"
+	"github.com/muesli/cache2go"
+	jose "gopkg.in/square/go-jose.v2"
+)
+
+// Those defines the cache tables constant values
+var (
+	CacheValueWaitingRequestsTable   = "waitting requests"
+	CacheValueWaitingRequestsTimeOut = time.Minute * 10
+
+	CacheValueConnectionsTable = ""
 )
 
 type (
@@ -29,6 +45,8 @@ type (
 
 		GetCert() *securelink.Certificate
 		UpdateCert(*securelink.Certificate)
+
+		GetServer() *securelink.Server
 	}
 
 	// MasterNode is almost equal to Node but specific to master
@@ -36,6 +54,9 @@ type (
 		Node
 
 		GetCA() *securelink.CA
+
+		GetToken() (string, error)
+		VerifyToken(serialized string) bool
 	}
 
 	node struct {
@@ -43,6 +64,8 @@ type (
 		Certificate *securelink.Certificate
 
 		Server *securelink.Server
+		// waitingRequest     []string
+		// outGoingConnection map[string]*http.Client
 	}
 
 	nodeExport struct {
@@ -50,11 +73,23 @@ type (
 		Addresses []string
 		Port      string
 		IsMaster  bool
+
+		// // Those parametiers are used for new token
+		// RequestID     string `json:",omitempty"`
+		// CertSignature []byte `json:",omitempty"`
+	}
+
+	newConnectionRequest struct {
+		ID              string
+		IssuerID        string
+		IssuerAddresses []string
+		IssuerPort      string
+		CACertSignature []byte
 	}
 )
 
 func newNode(certificate *securelink.Certificate, port string) (*node, error) {
-	id := uuid.Must(uuid.NewV4()).String()
+	id := certificate.Cert.SerialNumber.String()
 
 	addresses, err := getAddresses()
 	if err != nil {
@@ -67,7 +102,7 @@ func newNode(certificate *securelink.Certificate, port string) (*node, error) {
 		return nil, err
 	}
 
-	return &node{
+	n := &node{
 		nodeExport: &nodeExport{
 			ID:        id,
 			Addresses: addresses,
@@ -75,7 +110,13 @@ func newNode(certificate *securelink.Certificate, port string) (*node, error) {
 		},
 		Certificate: certificate,
 		Server:      server,
-	}, nil
+		// waitingRequest:     []string{},
+		// outGoingConnection: map[string]*http.Client{},
+	}
+
+	n.settupHandlers()
+
+	return n, nil
 }
 
 func NewNode(certificate *securelink.Certificate, port string) (Node, error) {
@@ -162,4 +203,187 @@ func (n *node) GetCA() *securelink.CA {
 
 func (n *node) GetPort() string {
 	return n.Port
+}
+
+func (n *node) GetServer() *securelink.Server {
+	return n.Server
+}
+
+func (n *node) GetToken() (string, error) {
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.ES384, Key: n.Certificate.PrivateKey}, nil)
+	if err != nil {
+		return "", err
+	}
+
+	reqID, token := n.buildServerInfoForToken()
+
+	object, err := signer.Sign(token)
+	if err != nil {
+		return "", err
+	}
+
+	serialized, err := object.CompactSerialize()
+	if err != nil {
+		return "", err
+	}
+
+	cache := cache2go.Cache(CacheValueWaitingRequestsTable)
+	cache.Add(reqID, CacheValueWaitingRequestsTimeOut, object.Signatures[0].Signature)
+
+	return serialized, nil
+}
+
+func (n *node) readToken(token string, verify bool) (_ *newConnectionRequest, signature []byte, _ error) {
+	object, err := jose.ParseSigned(token)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var output []byte
+	if verify {
+		output, err = object.Verify(n.Certificate.PrivateKey.Public())
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		output = object.UnsafePayloadWithoutVerification()
+	}
+
+	signature = object.Signatures[0].Signature
+
+	values := new(newConnectionRequest)
+	err = json.Unmarshal(output, values)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if values.ID == "" {
+		return nil, nil, fmt.Errorf("the request token does not containe any ID")
+	}
+
+	return values, signature, nil
+}
+
+func (n *node) VerifyToken(token string) bool {
+	values, signature, err := n.readToken(token, true)
+	if err != nil {
+		return false
+	}
+
+	cache := cache2go.Cache(CacheValueWaitingRequestsTable)
+	var res *cache2go.CacheItem
+	res, err = cache.Value(values.ID)
+	if err != nil {
+		return false
+	}
+
+	if fmt.Sprintf("%x", res.Data().([]byte)) == fmt.Sprintf("%x", signature) {
+		cache.Delete(values.ID)
+		return true
+	}
+
+	return false
+}
+
+func Connect(token, localPort string) (Node, error) {
+	n := new(node)
+
+	values, _, err := n.readToken(token, false)
+	if err != nil {
+		return nil, err
+	}
+
+	ok := false
+	var cert *securelink.Certificate
+	// var usedAddress string
+	for _, add := range values.IssuerAddresses {
+		ct, _, err := getClientCertificate(add, values.IssuerPort, token, values)
+		// ct, retAdd, err := getClientCertificate(add, values.IssuerPort, token, values)
+		if err != nil {
+			continue
+		}
+
+		ok = true
+		cert = ct
+		// usedAddress = retAdd
+		break
+	}
+	if !ok {
+		return nil, fmt.Errorf("can't get certificate")
+	}
+
+	var n2 Node
+	n2, err = NewNode(cert, localPort)
+	if err != nil {
+		return nil, err
+	}
+
+	// path := fmt.Sprintf("https://%s%s/%s/%s", usedAddress, values.Port, APIVersion, GetClusterMapPATH)
+	// // fmt.Println("path", path)
+
+	// connector := securelink.NewConnector(values.ID, cert)
+
+	// cache := cache2go.Cache(CacheValueConnectionsTable)
+	// var resp *http.Response
+	// resp, err = connector.Get(path)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// cache.Add(n2.GetID(), time.hou)
+
+	return n2, err
+}
+
+func getClientCertificate(address, port, tokenString string, token *newConnectionRequest) (cert *securelink.Certificate, usedAddress string, _ error) {
+	ip := net.ParseIP(address)
+	if to4 := ip.To4(); to4 == nil {
+		address = "[" + address + "]"
+	}
+
+	path := fmt.Sprintf("https://%s%s/%s/%s", address, port, APIVersion, PostCertificatePATH)
+	// fmt.Println("path", path)
+
+	insecureClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				ServerName:         token.ID,
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	data := url.Values{}
+	data.Set("token", tokenString)
+
+	resp, err := insecureClient.PostForm(path, data)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if caSign, tokenSign := fmt.Sprintf("%x", resp.TLS.PeerCertificates[0].Signature), fmt.Sprintf("%x", token.CACertSignature); caSign != tokenSign {
+		return nil, "", fmt.Errorf("the signature from the token is not equal to the server certificate \n\t%q \n\t%q", caSign, tokenSign)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("respond status is not 200 but %d: %q", resp.StatusCode, resp.Status)
+	}
+
+	buffer := make([]byte, 1000*1000) //1MB
+	var nb int
+	nb, err = io.ReadFull(resp.Body, buffer)
+	if err != nil {
+		if err != io.EOF && err != io.ErrUnexpectedEOF {
+			return nil, "", err
+		}
+	}
+	buffer = buffer[:nb]
+
+	var certificate *securelink.Certificate
+	certificate, err = securelink.Unmarshal(buffer)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return certificate, address, nil
 }

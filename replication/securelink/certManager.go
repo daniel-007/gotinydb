@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"math/rand"
 	"net"
 	"time"
 )
@@ -20,11 +21,15 @@ var (
 	Curve = elliptic.P384()
 )
 
-func getCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration) *x509.Certificate {
+// GetCertTemplate returns the base template for certification
+func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration) *x509.Certificate {
+	serial := big.NewInt(rand.Int63())
+	names = append(names, serial.String())
+
 	return &x509.Certificate{
 		SignatureAlgorithm: SignatureAlgorithm,
 
-		SerialNumber: big.NewInt(0),
+		SerialNumber: serial,
 		Subject:      getSubject(),
 
 		NotBefore: time.Now(),
@@ -57,66 +62,10 @@ func getCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Dura
 		// interpreted as MaxPathLen not being set.
 		MaxPathLenZero: true, // Go 1.4
 
-		// SubjectKeyId   []byte
-		// AuthorityKeyId []byte
-
-		// // RFC 5280, 4.2.2.1 (Authority Information Access)
-		// OCSPServer            []string // Go 1.2
-		// IssuingCertificateURL []string // Go 1.2
-
-		// // Subject Alternate Name values. (Note that these values may not be valid
-		// // if invalid values were contained within a parsed certificate. For
-		// // example, an element of DNSNames may not be a valid DNS domain name.)
-		DNSNames: names,
-		// EmailAddresses: []string{},
+		DNSNames:    names,
 		IPAddresses: ips, // Go 1.1
-		// URIs:           []*url.URL{}, // Go 1.10
-
-		// // // Name constraints
-		// PermittedDNSDomainsCritical: false, // if true then the name constraints are marked critical.
-		// PermittedDNSDomains:         []string{},
-		// ExcludedDNSDomains:          []string{},     // Go 1.9
-		// PermittedIPRanges:           []*net.IPNet{}, // Go 1.10
-		// ExcludedIPRanges:            []*net.IPNet{}, // Go 1.10
-		// PermittedEmailAddresses:     []string{},     // Go 1.10
-		// ExcludedEmailAddresses:      []string{},     // Go 1.10
-		// PermittedURIDomains:         []string{},     // Go 1.10
-		// ExcludedURIDomains:          []string{},     // Go 1.10
-
-		// // CRL Distribution Points
-		// CRLDistributionPoints: []string{}, // Go 1.2
-
-		// PolicyIdentifiers: []asn1.ObjectIdentifier{},
 	}
 }
-
-// func getReqTemplate(names []string, ips []net.IP) *x509.CertificateRequest {
-// 	return &x509.CertificateRequest{
-// 		SignatureAlgorithm: SignatureAlgorithm,
-
-// 		PublicKeyAlgorithm: PublicKeyAlgorithm,
-
-// 		Subject: getSubject(),
-
-// 		// // Attributes is the dried husk of a bug and shouldn't be used.
-// 		// Attributes []pkix.AttributeTypeAndValueSET
-
-// 		// // ExtraExtensions contains extensions to be copied, raw, into any
-// 		// // marshaled CSR. Values override any extensions that would otherwise
-// 		// // be produced based on the other fields but are overridden by any
-// 		// // extensions specified in Attributes.
-// 		// //
-// 		// // The ExtraExtensions field is not populated when parsing CSRs, see
-// 		// // Extensions.
-// 		// ExtraExtensions []pkix.Extension
-
-// 		// Subject Alternate Name values.
-// 		DNSNames: names,
-// 		// EmailAddresses: []string{},
-// 		IPAddresses: ips,
-// 		// URIs:           []*url.URL{}, // Go 1.10
-// 	}
-// }
 
 func getSubject() pkix.Name {
 	return pkix.Name{

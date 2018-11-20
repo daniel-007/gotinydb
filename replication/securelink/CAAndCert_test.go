@@ -2,7 +2,9 @@ package securelink_test
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -94,5 +96,23 @@ func runClient(t *testing.T, ca *securelink.CA) {
 
 	if string(readBuff) != "HELLO" {
 		t.Fatal("the returned content is not the same as the sent one", string(readBuff), "HELLO")
+	}
+}
+
+func TestCertificateMarshaling(t *testing.T) {
+	ca, _ := securelink.NewCA(time.Hour, "ca")
+	cert, _ := ca.NewCert(time.Hour, "node1")
+
+	asBytes := cert.Marshal()
+
+	fmt.Println("asBytes", string(asBytes))
+
+	cert2, err := securelink.Unmarshal(asBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(cert, cert2) {
+		t.Fatalf("certificates are not equal\n%v\n%v", cert, cert2)
 	}
 }
