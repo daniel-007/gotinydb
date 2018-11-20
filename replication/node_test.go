@@ -17,7 +17,7 @@ func TestNodes(t *testing.T) {
 	}
 	defer masterNode.Close()
 
-	go masterNode.GetServer().Start()
+	go masterNode.Start()
 
 	token, err := masterNode.GetToken()
 	if err != nil {
