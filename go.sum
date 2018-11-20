@@ -11,6 +11,8 @@ github.com/blevesearch/go-porterstemmer v1.0.1/go.mod h1:haWQqFT3RdOGz7PJuM3or/p
 github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f h1:kqbi9lqXLLs+zfWlgo1PIiRQ86n33K1JKotjj4rSYOg=
 github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f/go.mod h1:IInt5XRvpiGE09KOk9mmCMLjHhydIhNPKPPFLFBB7L8=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
+github.com/coreos/etcd v3.3.10+incompatible h1:KjVWqrZ5U0wa3CxY2AxlH6/UcB+PK2td1DcsYhA+HRs=
+github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/couchbase/vellum v0.0.0-20180910213445-01d5c56e6095 h1:dh7mqP7LS9voSd1Wx515giC2lPjPVduBpujISaftHrc=
 github.com/couchbase/vellum v0.0.0-20180910213445-01d5c56e6095/go.mod h1:prYTC8EgTu3gwbqJihkud9zRXISvyulAplQ6exdCo1g=
 github.com/dgraph-io/badger v0.0.0-00000000000000-439fd464b155d419201a5c195c70d40618376776 h1:vmAteHVECTgqNEUk7DwcSmPkV99gApfvyplEmhnORjU=
@@ -22,6 +24,8 @@ github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712 h1:aaQcKT9WumO6JEJc
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd h1:r04MMPyLHj/QwZuMJ5+7tJcBr1AQjpiAK/rZWRrQT7o=
 github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
+github.com/gogo/protobuf v1.1.1 h1:72R+M5VuhED/KujmZVcIquuo8mBgX4oVda//DQb3PXo=
+github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/protobuf v1.2.0 h1:P3YflyNX/ehuJFLhxviNdFxQPkGK5cDcApsge1SqnvM=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db h1:woRePGFeVFfLKN/pOkfl+p/TAqKOfFu+7KPlMVpok/w=

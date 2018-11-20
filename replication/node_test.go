@@ -1,7 +1,6 @@
 package replication_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ func TestNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer masterNode.Close()
 
 	go masterNode.GetServer().Start()
 
@@ -33,12 +33,14 @@ func TestNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(node1)
+	defer node1.Close()
 
-	_, err = replication.Connect(token, ":1325")
+	var node2 replication.Node
+	node2, err = replication.Connect(token, ":1325")
 	if err == nil {
 		t.Fatal("the token must be expired")
 	}
+	defer node2.Close()
 
 	// data := url.Values{}
 	// data.Set("token", token)

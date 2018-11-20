@@ -8,11 +8,13 @@ require (
 	github.com/blevesearch/go-porterstemmer v1.0.1 // indirect
 	github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
+	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/couchbase/vellum v0.0.0-20180910213445-01d5c56e6095 // indirect
 	github.com/dgraph-io/badger v0.0.0-00000000000000-439fd464b155d419201a5c195c70d40618376776
 	github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102 // indirect
 	github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712 // indirect
 	github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd // indirect
+	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/protobuf v1.2.0 // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/labstack/echo v3.3.5+incompatible
