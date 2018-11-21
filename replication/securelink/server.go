@@ -1,10 +1,5 @@
 package securelink
 
-import (
-	"crypto/tls"
-	"net/http"
-)
-
 // import (
 // 	"crypto/tls"
 // 	"encoding/json"
@@ -84,20 +79,20 @@ type (
 // 	return s.Certificate.Cert.SerialNumber
 // }
 
-// NewConnector provides a HTTP client with custom root CA
-func NewConnector(host string, cert *Certificate) *http.Client {
-	mTLSConfig := &tls.Config{
-		ServerName:   host,
-		Certificates: []tls.Certificate{cert.GetTLSCertificate()},
-		RootCAs:      cert.CertPool,
-	}
+// // NewConnector provides a HTTP client with custom root CA
+// func NewConnector(host string, cert *Certificate) *http.Client {
+// 	mTLSConfig := &tls.Config{
+// 		ServerName:   host,
+// 		Certificates: []tls.Certificate{cert.GetTLSCertificate()},
+// 		RootCAs:      cert.CertPool,
+// 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: mTLSConfig,
-	}
+// 	tr := &http.Transport{
+// 		TLSClientConfig: mTLSConfig,
+// 	}
 
-	return &http.Client{Transport: tr}
-}
+// 	return &http.Client{Transport: tr}
+// }
 
 // func (s *Server) GetAddresses() ([]string, error) {
 // 	return common.GetAddresses()

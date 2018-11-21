@@ -12,7 +12,7 @@ import (
 
 type (
 	handler struct {
-		*node
+		*Node
 	}
 )
 
@@ -27,23 +27,22 @@ var (
 	ServerIDHeadearName = "Server-Id"
 )
 
-func (n *node) settupHandlers() {
+func (n *Node) settupHandlers() {
 	handler := &handler{n}
 
-	apiGroup := n.Echo.Group(
+	apiGroup := handler.Echo.Group(
 		fmt.Sprintf("/%s/", APIVersion),
 		handler.verifyCertificateMiddleware,
 	)
 
 	apiGroup.POST(PostCertificatePATH, handler.returnCert)
-	apiGroup.POST(PostConnectNodePATH, handler.connectNode)
-	// apiGroup.GET(GetServerConnectivityPATH, handler.serverConnectivity)
+
 }
 
 func (h *handler) returnCert(c echo.Context) error {
 	tokenAsString := c.FormValue("token")
 
-	if !h.VerifyToken(tokenAsString) {
+	if !h.Certificate.VerifyToken(tokenAsString) {
 		return fmt.Errorf("the given token is not valid")
 	}
 
@@ -81,32 +80,6 @@ func (h *handler) serverConnectivity(c echo.Context) error {
 	return c.JSON(http.StatusOK, ret)
 }
 
-func (h *handler) connectNode(c echo.Context) error {
-	newNode := new(nodeExport)
-	err := c.Bind(newNode)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("newNode", newNode)
-
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
-
-	// configChange := raftpb.ConfChange{
-	// 	Type:   raftpb.ConfChangeAddNode,
-	// 	NodeID: newNode.ID.Uint64(),
-	// }
-	// err = h.Raft.ProposeConfChange(ctx, configChange)
-	err = h.Raft.AddNode(newNode)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	c.String(200, "connect")
-	return nil
-}
-
 func (h *handler) verifyCertificateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(c echo.Context) error {
 
@@ -123,96 +96,3 @@ func (h *handler) verifyCertificateMiddleware(next echo.HandlerFunc) echo.Handle
 		return next(c)
 	})
 }
-
-// func (h *handler) GetToken() (string, error) {
-// 	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.ES384, Key: h.Certificate.PrivateKey}, nil)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	reqID, token := h.buildNewConnectionRequest()
-
-// 	object, err := signer.Sign(token)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	serialized, err := object.CompactSerialize()
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	securecache.WaitingRequestTable.Add(reqID, securecache.CacheValueWaitingRequestsTimeOut, object.Signatures[0].Signature)
-
-// 	return serialized, nil
-// }
-
-// func (h *handler) readToken(token string, verify bool) (_ *newConnectionRequest, signature []byte, _ error) {
-// 	object, err := jose.ParseSigned(token)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	var output []byte
-// 	if verify {
-// 		output, err = object.Verify(h.Certificate.PrivateKey.Public())
-// 		if err != nil {
-// 			return nil, nil, err
-// 		}
-// 	} else {
-// 		output = object.UnsafePayloadWithoutVerification()
-// 	}
-
-// 	signature = object.Signatures[0].Signature
-
-// 	values := new(newConnectionRequest)
-// 	err = json.Unmarshal(output, values)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	if values.ID == "" {
-// 		return nil, nil, fmt.Errorf("the request token does not containe any ID")
-// 	}
-
-// 	return values, signature, nil
-// }
-
-// func (h *handler) VerifyToken(token string) bool {
-// 	values, signature, err := h.readToken(token, true)
-// 	if err != nil {
-// 		return false
-// 	}
-
-// 	// cache := cache2go.Cache(CacheValueWaitingRequestsTable)
-// 	var res *cache2go.CacheItem
-// 	res, err = securecache.WaitingRequestTable.Value(values.ID)
-// 	if err != nil {
-// 		return false
-// 	}
-
-// 	if fmt.Sprintf("%x", res.Data().([]byte)) == fmt.Sprintf("%x", signature) {
-// 		securecache.WaitingRequestTable.Delete(values.ID)
-// 		return true
-// 	}
-
-// 	return false
-// }
-
-// func (h *handler) buildNewConnectionRequest() (requestID string, reqAsJSON []byte) {
-// 	certSignature := make([]byte, len(h.Certificate.Cert.Signature))
-// 	copy(certSignature, h.Certificate.Cert.Signature)
-
-// 	addresses, _ := h.GetAddresses()
-
-// 	req := &newConnectionRequest{
-// 		ID:              uuid.NewV4().String(),
-// 		IssuerID:        h.GetBigID().String(),
-// 		IssuerPort:      h.Port,
-// 		IssuerAddresses: addresses,
-// 		CACertSignature: certSignature,
-// 	}
-
-// 	reqAsJSON, _ = json.Marshal(req)
-// 	return req.ID, reqAsJSON
-// }
