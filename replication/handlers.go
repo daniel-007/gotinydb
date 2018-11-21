@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alexandrestein/gotinydb/replication/securelink"
+
 	"github.com/alexandrestein/gotinydb/replication/common"
 
 	"github.com/labstack/echo"
@@ -20,9 +22,8 @@ type (
 var (
 	APIVersion = "v0.0.0"
 
-	PostCertificatePATH = "newClient"
-	PostConnectNodePATH = "addClient"
-	// GetServerConnectivityPATH = "connectivity"
+	PostCertificatePATH  = "new-client"
+	PostRaftStreamerPATH = "raft-streamer"
 
 	ServerIDHeadearName = "Server-Id"
 )
@@ -50,7 +51,7 @@ func (h *handler) returnCert(c echo.Context) error {
 		return fmt.Errorf("the server is not a CA")
 	}
 
-	clientCert, err := h.Certificate.NewCert(DefaultCertKeyAlgorithm, DefaultCertKeyLength, time.Hour*24*365*10)
+	clientCert, err := h.Certificate.NewCert(DefaultCertKeyAlgorithm, DefaultCertKeyLength, time.Hour*24*365*10, securelink.GetCertTemplate(nil, nil))
 	if err != nil {
 		return err
 	}
@@ -91,7 +92,7 @@ func (h *handler) verifyCertificateMiddleware(next echo.HandlerFunc) echo.Handle
 			return echo.NewHTTPError(http.StatusUnauthorized, "no client certificate")
 		}
 
-		c.Response().Header().Add(ServerIDHeadearName, h.ID.String())
+		c.Response().Header().Add(ServerIDHeadearName, h.GetID().String())
 
 		return next(c)
 	})
