@@ -48,18 +48,22 @@ var (
 )
 
 // GetCertTemplate returns the base template for certification
-func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration, signatureAlgorithm x509.SignatureAlgorithm) *x509.Certificate {
+func GetCertTemplate(names []string, ips []net.IP) *x509.Certificate {
 	serial, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+
+	if len(names) == 0 || names == nil {
+		names = []string{}
+	}
 	names = append(names, serial.String())
 
 	return &x509.Certificate{
-		SignatureAlgorithm: signatureAlgorithm,
+		SignatureAlgorithm: x509.UnknownSignatureAlgorithm,
 
 		SerialNumber: serial,
 		Subject:      getSubject(),
 
 		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(expireIn), // Validity bounds.
+		NotAfter:  time.Now().Add(time.Hour * 24 * 365), // Validity bounds.
 		KeyUsage:  x509.KeyUsageDigitalSignature | x509.KeyUsageContentCommitment | x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment | x509.KeyUsageKeyAgreement | x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageEncipherOnly | x509.KeyUsageDecipherOnly,
 
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, // Sequence of extended key usages.
@@ -67,7 +71,7 @@ func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Dura
 		// BasicConstraintsValid indicates whether IsCA, MaxPathLen,
 		// and MaxPathLenZero are valid.
 		BasicConstraintsValid: true,
-		IsCA: isCA,
+		IsCA: false,
 
 		// MaxPathLen and MaxPathLenZero indicate the presence and
 		// value of the BasicConstraints' "pathLenConstraint".
@@ -87,9 +91,8 @@ func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Dura
 		// maximum path length of zero. Otherwise, that combination is
 		// interpreted as MaxPathLen not being set.
 		MaxPathLenZero: true, // Go 1.4
-
-		DNSNames:    names,
-		IPAddresses: ips, // Go 1.1
+		DNSNames:       names,
+		IPAddresses:    ips, // Go 1.1
 	}
 }
 

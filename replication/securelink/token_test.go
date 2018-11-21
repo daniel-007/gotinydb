@@ -34,7 +34,8 @@ func TestToken(t *testing.T) {
 				t.SkipNow()
 			}
 
-			ca, err := securelink.NewCA(test.Type, test.Length, time.Hour, "ca")
+			certTemplate := securelink.GetCertTemplate(nil, nil)
+			ca, err := securelink.NewCA(test.Type, test.Length, time.Hour, certTemplate, "ca")
 			if err != nil {
 				t.Fatal(err)
 			}

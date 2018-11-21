@@ -67,19 +67,21 @@ func genKeyPair(keyType KeyType, keyLength KeyLength) (*KeyPair, error) {
 // GetSignatureAlgorithm returns the signature algorithm for the given key type and key size
 func GetSignatureAlgorithm(keyType KeyType, keyLength KeyLength) x509.SignatureAlgorithm {
 	if keyType == KeyTypeRSA {
-		if keyLength == KeyLengthRsa2048 {
+		switch keyLength {
+		case KeyLengthRsa2048:
 			return x509.SHA256WithRSAPSS
-		} else if keyLength == KeyLengthRsa3072 {
+		case KeyLengthRsa3072:
 			return x509.SHA384WithRSAPSS
-		} else if keyLength == KeyLengthRsa4096 || keyLength == KeyLengthRsa8192 {
+		case KeyLengthRsa4096, KeyLengthRsa8192:
 			return x509.SHA512WithRSAPSS
 		}
 	} else if keyType == KeyTypeEc {
-		if keyLength == KeyLengthEc256 {
+		switch keyLength {
+		case KeyLengthEc256:
 			return x509.ECDSAWithSHA256
-		} else if keyLength == KeyLengthEc384 {
+		case KeyLengthEc384:
 			return x509.ECDSAWithSHA384
-		} else if keyLength == KeyLengthEc521 {
+		case KeyLengthEc521:
 			return x509.ECDSAWithSHA512
 		}
 	}
@@ -89,13 +91,15 @@ func GetSignatureAlgorithm(keyType KeyType, keyLength KeyLength) x509.SignatureA
 // NewCA returns a new CA pointer which is supposed to be used as server certificate
 // and client and server certificate for remote instances.
 // names are used as domain names.
-func NewCA(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, names ...string) (*Certificate, error) {
+func NewCA(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, certTemplate *x509.Certificate, names ...string) (*Certificate, error) {
 	keyPair, err := genKeyPair(keyType, keyLength)
 	if err != nil {
 		return nil, err
 	}
 
-	certTemplate := GetCertTemplate(true, names, nil, lifeTime, GetSignatureAlgorithm(keyType, keyLength))
+	certTemplate.IsCA = true
+	certTemplate.DNSNames = append(certTemplate.DNSNames, names...)
+	certTemplate.SignatureAlgorithm = GetSignatureAlgorithm(keyType, keyLength)
 
 	certAsDER, err := x509.CreateCertificate(rand.Reader, certTemplate, certTemplate, keyPair.Public, keyPair.Private)
 	if err != nil {
@@ -120,7 +124,7 @@ func NewCA(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, names .
 }
 
 // NewCert returns a new certificate pointer which can be used for tls connection
-func (c *Certificate) NewCert(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, names ...string) (*Certificate, error) {
+func (c *Certificate) NewCert(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, certTemplate *x509.Certificate, names ...string) (*Certificate, error) {
 	if !c.IsCA {
 		return nil, fmt.Errorf("this is not a CA")
 	}
@@ -130,11 +134,15 @@ func (c *Certificate) NewCert(keyType KeyType, keyLength KeyLength, lifeTime tim
 		return nil, err
 	}
 
+	certTemplate.IsCA = false
+	certTemplate.DNSNames = append(certTemplate.DNSNames, names...)
+	certTemplate.SignatureAlgorithm = GetSignatureAlgorithm(c.KeyPair.Type, c.KeyPair.Length)
+
 	// Sign certificate with the CA
 	var certAsDER []byte
 	certAsDER, err = x509.CreateCertificate(
 		rand.Reader,
-		GetCertTemplate(false, names, nil, lifeTime, GetSignatureAlgorithm(c.KeyPair.Type, c.KeyPair.Length)),
+		certTemplate,
 		c.Cert,
 		keyPair.Public,
 		c.KeyPair.Private,

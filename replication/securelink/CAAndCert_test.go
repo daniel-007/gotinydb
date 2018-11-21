@@ -36,7 +36,8 @@ func TestNewCA(t *testing.T) {
 				t.SkipNow()
 			}
 
-			ca, err := securelink.NewCA(test.Type, test.Length, time.Hour, "ca")
+			certTemplate := securelink.GetCertTemplate(nil, nil)
+			ca, err := securelink.NewCA(test.Type, test.Length, time.Hour, certTemplate, "ca")
 			if err != nil {
 				if test.Error {
 					return
@@ -91,7 +92,8 @@ func listen(t *testing.T, ca *securelink.Certificate) {
 }
 
 func runClient(t *testing.T, ca *securelink.Certificate) {
-	cert, err := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Minute, "client")
+	certTemplate := securelink.GetCertTemplate(nil, nil)
+	cert, err := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Minute, certTemplate, "client")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +132,8 @@ func runClient(t *testing.T, ca *securelink.Certificate) {
 }
 
 func TestCertificateMarshaling(t *testing.T) {
-	ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, "ca")
+	certTemplate := securelink.GetCertTemplate(nil, nil)
+	ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, certTemplate, "ca")
 
 	tests := []struct {
 		Name   string
@@ -153,8 +156,11 @@ func TestCertificateMarshaling(t *testing.T) {
 			if test.Long && testing.Short() {
 				t.SkipNow()
 			}
-
-			cert, _ := ca.NewCert(test.Type, test.Length, time.Hour, "node1")
+			certTemplate := securelink.GetCertTemplate(nil, nil)
+			cert, err := ca.NewCert(test.Type, test.Length, time.Hour, certTemplate, "node1")
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			asBytes := cert.Marshal()
 

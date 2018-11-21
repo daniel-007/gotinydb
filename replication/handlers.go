@@ -50,7 +50,7 @@ func (h *handler) returnCert(c echo.Context) error {
 		return fmt.Errorf("the server is not a CA")
 	}
 
-	clientCert, err := h.Certificate.NewCert(time.Hour * 24 * 365 * 10)
+	clientCert, err := h.Certificate.NewCert(DefaultCertKeyAlgorithm, DefaultCertKeyLength, time.Hour*24*365*10)
 	if err != nil {
 		return err
 	}
