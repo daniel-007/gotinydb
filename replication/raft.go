@@ -1,6 +1,7 @@
 package replication
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -69,10 +70,14 @@ func NewRaft(id uint64, peers []raft.Peer) *raftNode {
 // }
 
 func (r *raftNode) raftLoop() {
+	i := 0
 	for {
+		i++
+		fmt.Println("new loop", i)
+		fmt.Println("ID", r.Node.Status().ID)
 		select {
-		case <-time.Tick(time.Millisecond * 100):
-			r.Node.Tick()
+		// case <-time.Tick(time.Millisecond * 100):
+		// 	r.Node.Tick()
 		case rd := <-r.Node.Ready():
 			r.saveToStorage(rd.HardState, rd.Entries, rd.Snapshot)
 			r.sendMessages(rd.Messages)
@@ -116,4 +121,21 @@ func (r *raftNode) processSnapshot(snapshot raftpb.Snapshot) {
 
 func (r *raftNode) processEntry(entry raftpb.Entry) {
 	fmt.Println("processEntry", entry)
+}
+
+func (r *raftNode) AddNode(newNode *nodeExport) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	configChange := raftpb.ConfChange{
+		Type:   raftpb.ConfChangeAddNode,
+		NodeID: newNode.ID.Uint64(),
+	}
+	// go func() {
+	// 	err := r.Node.ProposeConfChange(ctx, configChange)
+	// 	fmt.Println("eresdvsdf545", err)
+	// 	}()
+
+	err := r.Node.ProposeConfChange(ctx, configChange)
+	return err
 }

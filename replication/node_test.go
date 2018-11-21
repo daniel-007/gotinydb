@@ -24,10 +24,6 @@ func TestNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if testing.Verbose() {
-		t.Logf("The token is: %s", token)
-	}
-
 	var node1 replication.Node
 	node1, err = replication.Connect(token, ":1324")
 	if err != nil {

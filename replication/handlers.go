@@ -21,7 +21,7 @@ var (
 	APIVersion = "v0.0.0"
 
 	PostCertificatePATH = "newClient"
-	PostAddClientPATH   = "addClient"
+	PostConnectNodePATH = "addClient"
 	// GetServerConnectivityPATH = "connectivity"
 
 	ServerIDHeadearName = "Server-Id"
@@ -36,7 +36,7 @@ func (n *node) settupHandlers() {
 	)
 
 	apiGroup.POST(PostCertificatePATH, handler.returnCert)
-	apiGroup.POST(PostAddClientPATH, handler.addClient)
+	apiGroup.POST(PostConnectNodePATH, handler.connectNode)
 	// apiGroup.GET(GetServerConnectivityPATH, handler.serverConnectivity)
 }
 
@@ -81,8 +81,29 @@ func (h *handler) serverConnectivity(c echo.Context) error {
 	return c.JSON(http.StatusOK, ret)
 }
 
-func (h *handler) addClient(c echo.Context) error {
+func (h *handler) connectNode(c echo.Context) error {
+	newNode := new(nodeExport)
+	err := c.Bind(newNode)
+	if err != nil {
+		return err
+	}
 
+	fmt.Println("newNode", newNode)
+
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
+	// configChange := raftpb.ConfChange{
+	// 	Type:   raftpb.ConfChangeAddNode,
+	// 	NodeID: newNode.ID.Uint64(),
+	// }
+	// err = h.Raft.ProposeConfChange(ctx, configChange)
+	err = h.Raft.AddNode(newNode)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	c.String(200, "connect")
 	return nil
 }
 

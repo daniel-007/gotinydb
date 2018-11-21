@@ -1,6 +1,7 @@
 package replication
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/coreos/etcd/raft"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
 	"github.com/muesli/cache2go"
@@ -45,8 +47,11 @@ type (
 		UpdateCert(*securelink.Certificate)
 
 		// GetServer() *securelink.Server
+		Start() error
 
 		Close() error
+
+		addToRaftCluster(cli *http.Client, path string) error
 	}
 
 	// MasterNode is almost equal to Node but specific to master
@@ -113,10 +118,12 @@ func newNode(certificate *securelink.Certificate, port string) (*node, error) {
 	// securecache.PeersTable.Add(id.Int64(), time.Hour*24*365*10, link)
 
 	// peers := securecache.GetPeers()
-	// fmt.Println("peers", peers)
 
 	e := echo.New()
 	e.Logger.SetLevel(log.OFF)
+
+	// peers := []raft.Peer{raft.Peer{ID: id.Uint64()}}
+	// fmt.Println("peers", peers)
 
 	n := &node{
 		nodeExport: &nodeExport{
@@ -128,7 +135,7 @@ func newNode(certificate *securelink.Certificate, port string) (*node, error) {
 		// Server:      server,
 		Echo: e,
 
-		Raft: NewRaft(certificate.Cert.SerialNumber.Uint64(), nil),
+		// Raft: NewRaft(id.Uint64(), peers),
 		// waitingRequest:     []string{},
 		// outGoingConnection: map[string]*http.Client{},
 	}
@@ -142,6 +149,7 @@ func NewNode(certificate *securelink.Certificate, port string) (Node, error) {
 		return nil, err
 	}
 	n.IsMaster = false
+	n.Raft = NewRaft(n.ID.Uint64(), nil)
 
 	return Node(n), nil
 }
@@ -152,6 +160,9 @@ func NewMasterNode(certificate *securelink.Certificate, port string) (MasterNode
 		return nil, err
 	}
 	n.IsMaster = true
+
+	peers := []raft.Peer{raft.Peer{ID: n.ID.Uint64()}}
+	n.Raft = NewRaft(n.ID.Uint64(), peers)
 
 	return MasterNode(n), nil
 }
@@ -234,12 +245,12 @@ func (n *node) Close() error {
 // 	return n.VerifyToken(token)
 // }
 
+// Start starts the HTTP and TLS servers
 func (n *node) Start() error {
 	serverTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{n.Certificate.GetTLSCertificate()},
 		ClientCAs:    n.Certificate.CertPool,
-		// ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientAuth: tls.VerifyClientCertIfGiven,
+		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
 	n.Echo.TLSServer.TLSConfig = serverTLSConfig
 
@@ -247,6 +258,8 @@ func (n *node) Start() error {
 	if err != nil {
 		return err
 	}
+
+	n.settupHandlers()
 
 	return n.Echo.TLSServer.Serve(tlsListener)
 }
@@ -352,16 +365,15 @@ func Connect(token, localPort string) (Node, error) {
 		return nil, fmt.Errorf("can't get certificate")
 	}
 
-	path := fmt.Sprintf("https://%s%s/%s/%s", usedAddress, values.IssuerPort, APIVersion, PostAddClientPATH)
-	connector := securelink.NewConnector(values.IssuerID, cert)
-
-	err = addToRaftCluster(connector, path)
+	var n2 Node
+	n2, err = NewNode(cert, localPort)
 	if err != nil {
 		return nil, err
 	}
 
-	var n2 Node
-	n2, err = NewNode(cert, localPort)
+	path := fmt.Sprintf("https://%s%s/%s/%s", usedAddress, values.IssuerPort, APIVersion, PostConnectNodePATH)
+	connector := securelink.NewConnector(values.IssuerID, cert)
+	err = n2.addToRaftCluster(connector, path)
 	if err != nil {
 		return nil, err
 	}
@@ -374,11 +386,18 @@ func Connect(token, localPort string) (Node, error) {
 	return n2, err
 }
 
-func addToRaftCluster(cli *http.Client, path string) error {
+func (n *node) addToRaftCluster(cli *http.Client, path string) error {
 	fmt.Println("path", path)
-	v := url.Values{}
-	v.Set("name", "Ava")
-	resp, err := cli.PostForm(path, v)
+
+	buffer := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(buffer)
+	err := encoder.Encode(n.nodeExport)
+	if err != nil {
+		return err
+	}
+
+	var resp *http.Response
+	resp, err = cli.Post(path, "application/json", buffer)
 	if err != nil {
 		return err
 	}
@@ -541,3 +560,19 @@ func GetClientCertificate(address, port, tokenString string, token *NewConnectio
 
 	return certificate, address, nil
 }
+
+// // Start starts the HTTP and TLS servers
+// func (n *node) Start() error {
+// 	serverTLSConfig := &tls.Config{
+// 		Certificates: []tls.Certificate{n.Certificate.GetTLSCertificate()},
+// 		ClientCAs:    n.Certificate.CertPool,
+// 		// ClientAuth:   tls.RequireAndVerifyClientCert,
+// 		ClientAuth: tls.VerifyClientCertIfGiven,
+// 	}
+// 	n.Echo.TLSServer.TLSConfig = serverTLSConfig
+
+// 	tlsListener, err := tls.Listen("tcp", n.Port, serverTLSConfig)
+// 	if err != nil {
+// 		return err
+// 	}
+// }
