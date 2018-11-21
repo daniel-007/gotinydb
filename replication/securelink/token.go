@@ -3,6 +3,7 @@ package securelink
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/alexandrestein/gotinydb/replication/common"
 	"github.com/alexandrestein/gotinydb/replication/securelink/securecache"
@@ -12,22 +13,46 @@ import (
 )
 
 type (
+	// Token defines sign objects which
 	Token struct {
 		ID              string
 		IssuerID        string
 		IssuerAddresses []string
-		IssuerPort      string
 		CACertSignature []byte
+
+		Values url.Values
 	}
 )
 
-func (c *Certificate) GetToken(issuerID, issuerPort string) (string, error) {
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.ES384, Key: c.PrivateKey}, nil)
+func (c *Certificate) getTokenSignAlgorithm() jose.SignatureAlgorithm {
+	if c.KeyPair.Type == KeyTypeRSA {
+		if c.KeyPair.Length == KeyLengthRsa2048 {
+			return jose.RS256
+		} else if c.KeyPair.Length == KeyLengthRsa3072 {
+			return jose.RS384
+		} else if c.KeyPair.Length == KeyLengthRsa4096 || c.KeyPair.Length == KeyLengthRsa8192 {
+			return jose.RS512
+		}
+	} else if c.KeyPair.Type == KeyTypeEc {
+		if c.KeyPair.Length == KeyLengthEc256 {
+			return jose.ES256
+		} else if c.KeyPair.Length == KeyLengthEc384 {
+			return jose.ES384
+		} else if c.KeyPair.Length == KeyLengthEc521 {
+			return jose.ES512
+		}
+	}
+	return ""
+}
+
+// GetToken returns a string representation of a temporary token (10 minutes validity with cache2go)
+func (c *Certificate) GetToken(data url.Values) (string, error) {
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: c.getTokenSignAlgorithm(), Key: c.KeyPair.Private}, nil)
 	if err != nil {
 		return "", err
 	}
 
-	reqID, token := c.buildNewConnectionRequest(issuerID, issuerPort)
+	reqID, token := c.buildNewConnectionRequest(data)
 
 	object, err := signer.Sign(token)
 	if err != nil {
@@ -44,6 +69,7 @@ func (c *Certificate) GetToken(issuerID, issuerPort string) (string, error) {
 	return serialized, nil
 }
 
+// ReadToken returns a Token pointer from it's string representation
 func (c *Certificate) ReadToken(token string, verify bool) (_ *Token, signature []byte, _ error) {
 	object, err := jose.ParseSigned(token)
 	if err != nil {
@@ -52,7 +78,7 @@ func (c *Certificate) ReadToken(token string, verify bool) (_ *Token, signature 
 
 	var output []byte
 	if verify {
-		output, err = object.Verify(c.PrivateKey.Public())
+		output, err = object.Verify(c.KeyPair.Public)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -75,6 +101,8 @@ func (c *Certificate) ReadToken(token string, verify bool) (_ *Token, signature 
 	return values, signature, nil
 }
 
+// VerifyToken returns true if the string representation of the token has valid signature
+// and it can be found in the list of active token (cache2go)
 func (c *Certificate) VerifyToken(token string) bool {
 	values, signature, err := c.ReadToken(token, true)
 	if err != nil {
@@ -95,7 +123,7 @@ func (c *Certificate) VerifyToken(token string) bool {
 	return false
 }
 
-func (c *Certificate) buildNewConnectionRequest(issuerID, issuerPort string) (requestID string, reqAsJSON []byte) {
+func (c *Certificate) buildNewConnectionRequest(data url.Values) (requestID string, reqAsJSON []byte) {
 	certSignature := make([]byte, len(c.Cert.Signature))
 	copy(certSignature, c.Cert.Signature)
 
@@ -103,10 +131,11 @@ func (c *Certificate) buildNewConnectionRequest(issuerID, issuerPort string) (re
 
 	req := &Token{
 		ID:              uuid.NewV4().String(),
-		IssuerID:        issuerID,
-		IssuerPort:      issuerPort,
+		IssuerID:        c.Cert.SerialNumber.String(),
 		IssuerAddresses: addresses,
 		CACertSignature: certSignature,
+
+		Values: data,
 	}
 
 	reqAsJSON, _ = json.Marshal(req)

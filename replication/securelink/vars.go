@@ -1,35 +1,59 @@
 package securelink
 
 import (
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math"
 	"math/big"
-	// "math/rand"
 	"net"
 	"time"
 )
 
-// Those constants define used algorithm inside the package
+// // Those constants define used algorithm inside the package
+// const (
+// 	SignatureAlgorithm = x509.ECDSAWithSHA384
+// 	PublicKeyAlgorithm = x509.ECDSA
+
+// 	JoseSignAlgorithm = jose.ES384
+// )
+
+// // Curve defines the elliptic curve used inside the package
+// var (
+// 	Curve = elliptic.P384()
+// )
+
+// Defines the supported key type
 const (
-	SignatureAlgorithm = x509.ECDSAWithSHA384
-	PublicKeyAlgorithm = x509.ECDSA
+	KeyTypeRSA = "RSA"
+	KeyTypeEc  = "EC"
 )
 
-// Curve defines the elliptic curve used inside the package
+// Defines the supported key length
+const (
+	KeyLengthRsa2048 = "RSA 2048"
+	KeyLengthRsa3072 = "RSA 3072"
+	KeyLengthRsa4096 = "RSA 4096"
+	KeyLengthRsa8192 = "RSA 8192"
+
+	KeyLengthEc256 = "EC 256"
+	KeyLengthEc384 = "EC 384"
+	KeyLengthEc521 = "EC 521"
+)
+
+// Those variables defines the most common package errors
 var (
-	Curve = elliptic.P384()
+	ErrKeyConfigNotCompatible = fmt.Errorf("the key type and key size are not compatible")
 )
 
 // GetCertTemplate returns the base template for certification
-func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration) *x509.Certificate {
+func GetCertTemplate(isCA bool, names []string, ips []net.IP, expireIn time.Duration, signatureAlgorithm x509.SignatureAlgorithm) *x509.Certificate {
 	serial, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	names = append(names, serial.String())
 
 	return &x509.Certificate{
-		SignatureAlgorithm: SignatureAlgorithm,
+		SignatureAlgorithm: signatureAlgorithm,
 
 		SerialNumber: serial,
 		Subject:      getSubject(),

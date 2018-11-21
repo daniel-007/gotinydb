@@ -2,7 +2,6 @@ package securelink_test
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -12,14 +11,45 @@ import (
 )
 
 func TestNewCA(t *testing.T) {
-	ca, err := securelink.NewCA(time.Hour, "ca")
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		Name   string
+		Type   securelink.KeyType
+		Length securelink.KeyLength
+		Long   bool
+		Error  bool
+	}{
+		{"EC 256", securelink.KeyTypeEc, securelink.KeyLengthEc256, false, false},
+		{"EC 384", securelink.KeyTypeEc, securelink.KeyLengthEc384, false, false},
+		{"EC 521", securelink.KeyTypeEc, securelink.KeyLengthEc521, false, false},
+
+		{"RSA 2048", securelink.KeyTypeRSA, securelink.KeyLengthRsa2048, false, false},
+		{"RSA 3072", securelink.KeyTypeRSA, securelink.KeyLengthRsa3072, true, false},
+		{"RSA 4096", securelink.KeyTypeRSA, securelink.KeyLengthRsa4096, true, false},
+		{"RSA 8192", securelink.KeyTypeRSA, securelink.KeyLengthRsa8192, true, false},
+
+		{"not valid", securelink.KeyTypeRSA, securelink.KeyLengthEc256, false, true},
 	}
 
-	listen(t, ca)
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			if test.Long && testing.Short() {
+				t.SkipNow()
+			}
 
-	runClient(t, ca)
+			ca, err := securelink.NewCA(test.Type, test.Length, time.Hour, "ca")
+			if err != nil {
+				if test.Error {
+					return
+				}
+				t.Fatal(err)
+			}
+
+			listen(t, ca)
+
+			runClient(t, ca)
+		})
+
+	}
 }
 
 func listen(t *testing.T, ca *securelink.Certificate) {
@@ -61,7 +91,7 @@ func listen(t *testing.T, ca *securelink.Certificate) {
 }
 
 func runClient(t *testing.T, ca *securelink.Certificate) {
-	cert, err := ca.NewCert(time.Minute, "client")
+	cert, err := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Minute, "client")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,19 +130,43 @@ func runClient(t *testing.T, ca *securelink.Certificate) {
 }
 
 func TestCertificateMarshaling(t *testing.T) {
-	ca, _ := securelink.NewCA(time.Hour, "ca")
-	cert, _ := ca.NewCert(time.Hour, "node1")
+	ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, "ca")
 
-	asBytes := cert.Marshal()
+	tests := []struct {
+		Name   string
+		Type   securelink.KeyType
+		Length securelink.KeyLength
+		Long   bool
+	}{
+		{"EC 256", securelink.KeyTypeEc, securelink.KeyLengthEc256, false},
+		{"EC 384", securelink.KeyTypeEc, securelink.KeyLengthEc384, false},
+		{"EC 521", securelink.KeyTypeEc, securelink.KeyLengthEc521, false},
 
-	fmt.Println("asBytes", string(asBytes))
-
-	cert2, err := securelink.Unmarshal(asBytes)
-	if err != nil {
-		t.Fatal(err)
+		{"RSA 2048", securelink.KeyTypeRSA, securelink.KeyLengthRsa2048, false},
+		{"RSA 3072", securelink.KeyTypeRSA, securelink.KeyLengthRsa3072, true},
+		{"RSA 4096", securelink.KeyTypeRSA, securelink.KeyLengthRsa4096, true},
+		{"RSA 8192", securelink.KeyTypeRSA, securelink.KeyLengthRsa8192, true},
 	}
 
-	if !reflect.DeepEqual(cert, cert2) {
-		t.Fatalf("certificates are not equal\n%v\n%v", cert, cert2)
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			if test.Long && testing.Short() {
+				t.SkipNow()
+			}
+
+			cert, _ := ca.NewCert(test.Type, test.Length, time.Hour, "node1")
+
+			asBytes := cert.Marshal()
+
+			cert2, err := securelink.Unmarshal(asBytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(cert, cert2) {
+				t.Fatalf("certificates are not equal\n%v\n%v", cert, cert2)
+			}
+		})
 	}
+
 }
