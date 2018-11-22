@@ -71,7 +71,11 @@ func init() {
 		log.Fatal(err)
 	}
 	defer writer.Close()
-	writer.Write([]byte("JbBSFroiVAtjQy6bR3xXgrPY2GFvOPRqvWxfHUmAFAksELPTpV0lmPvwjMwdqq5i"))
+
+	_, err = writer.Write([]byte("JbBSFroiVAtjQy6bR3xXgrPY2GFvOPRqvWxfHUmAFAksELPTpV0lmPvwjMwdqq5i"))
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func Example() {
@@ -218,6 +222,7 @@ func ExampleWriter() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	writtenBytes += n
 	n, err = writer.Write([]byte("\n"))
 	if err != nil {

@@ -7,12 +7,19 @@ const (
 	prefixConfig byte = iota
 	prefixCollections
 	prefixFiles
+	prefixRaftStore
 )
 
 // Those constants defines the second level of prefixes or value from config.
 const (
 	prefixCollectionsData byte = iota
 	prefixCollectionsBleveIndex
+)
+
+const (
+	prefixRaftStableStore byte = iota
+	prefixRaftLogStore
+	prefixRaftSnapshotStore
 )
 
 // This defines most of the package errors

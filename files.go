@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/alexandrestein/gotinydb/transaction"
 	"github.com/dgraph-io/badger"
 	"golang.org/x/crypto/blake2b"
@@ -136,39 +135,24 @@ func (d *DB) writeFileChunk(id string, chunk int, content []byte) (err error) {
 }
 
 func (d *DB) getFileMeta(id, name string) (meta *FileMeta, err error) {
-	err = d.badger.View(func(txn *badger.Txn) (err error) {
-		metaID := d.buildFilePrefix(id, 0)
-
-		var item *badger.Item
-		item, err = txn.Get(metaID)
-		if err != nil {
-			if err == badger.ErrKeyNotFound {
-				err = nil
-				meta = d.buildMeta(id, name)
-				return
-			}
-			return
-		}
-
-		var valAsEncryptedBytes []byte
-		valAsEncryptedBytes, err = item.ValueCopy(valAsEncryptedBytes)
-		if err != nil {
-			return
-		}
-
-		var valAsBytes []byte
-		valAsBytes, err = cipher.Decrypt(d.PrivateKey, item.Key(), valAsEncryptedBytes)
-		if err != nil {
-			return
-		}
-
-		meta = new(FileMeta)
-		return json.Unmarshal(valAsBytes, meta)
-	})
+	meta = new(FileMeta)
+	var caller *GetCaller
+	caller, err = d.buildGetCaller(d.buildFilePrefix(id, 0), meta)
 	if err != nil {
 		return
 	}
-	return
+
+	err = d.get(caller)
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			err = nil
+			meta = d.buildMeta(id, name)
+			return
+		}
+		return nil, err
+	}
+
+	return meta, nil
 }
 
 func (d *DB) buildMeta(id, name string) (meta *FileMeta) {
@@ -233,7 +217,7 @@ func (d *DB) ReadFile(id string, writer io.Writer) error {
 			}
 
 			var valAsBytes []byte
-			valAsBytes, err = cipher.Decrypt(d.PrivateKey, it.Item().Key(), valAsEncryptedBytes)
+			valAsBytes, err = d.decryptData(it.Item().Key(), valAsEncryptedBytes)
 			if err != nil {
 				return err
 			}
@@ -406,7 +390,7 @@ func (r *readWriter) Read(p []byte) (n int, err error) {
 		}
 
 		var valAsBytes []byte
-		valAsBytes, err = cipher.Decrypt(r.db.PrivateKey, it.Item().Key(), valAsEncryptedBytes)
+		valAsBytes, err = r.db.decryptData(it.Item().Key(), valAsEncryptedBytes)
 		if err != nil {
 			return 0, err
 		}
@@ -452,24 +436,18 @@ func (r *readWriter) ReadAt(p []byte, off int64) (n int, err error) {
 	return r.Read(p)
 }
 
-func (r *readWriter) getExistingBlock(blockN int) (ret []byte, err error) {
+func (r *readWriter) getExistingBlock(blockN int) ([]byte, error) {
 	chunkID := r.db.buildFilePrefix(r.meta.ID, blockN)
-	var item *badger.Item
-	item, err = r.txn.Get(chunkID)
+
+	caller, err := r.db.Get(chunkID)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return []byte{}, nil
 		}
-		return
-	}
-
-	var valAsEncryptedBytes []byte
-	valAsEncryptedBytes, err = item.ValueCopy(valAsEncryptedBytes)
-	if err != nil {
 		return nil, err
 	}
 
-	return cipher.Decrypt(r.db.PrivateKey, item.Key(), valAsEncryptedBytes)
+	return caller.asBytes, nil
 }
 
 func (r *readWriter) Write(p []byte) (n int, err error) {
@@ -591,7 +569,7 @@ func (r *readWriter) getWrittenSize() (n int64) {
 	}
 
 	var valAsBytes []byte
-	valAsBytes, err = cipher.Decrypt(r.db.PrivateKey, item.Key(), encryptedValue)
+	valAsBytes, err = r.db.decryptData(item.Key(), encryptedValue)
 	if err != nil {
 		return
 	}

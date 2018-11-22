@@ -11,12 +11,14 @@ It relais on Bleve and Badger to do the job.
 package gotinydb
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"io"
 	"math"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/alexandrestein/gotinydb/blevestore"
@@ -485,4 +487,148 @@ func (d *DB) GetFileIterator() *FileIterator {
 		},
 		db: d,
 	}
+}
+
+// Get permits to easily get raw values from the database
+func (d *DB) Get(storeID []byte) (caller *GetCaller, err error) {
+	caller, err = d.buildGetCaller(storeID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return caller, d.get(caller)
+}
+
+// GetMulti permits to easily get multiple raw values from the database
+func (d *DB) GetMulti(storeIDs [][]byte) (callers []*GetCaller, err error) {
+	callers = make([]*GetCaller, len(storeIDs))
+	for i, storeID := range storeIDs {
+		var caller *GetCaller
+		caller, err = d.buildGetCaller(storeID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		callers[i] = caller
+	}
+
+	return callers, d.getMulti(callers)
+}
+
+func (d *DB) get(caller *GetCaller) error {
+	err := d.badger.View(func(txn *badger.Txn) error {
+		err := d.getEncrypted(txn, caller)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	err = d.decryptAndUnmarshal(caller)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DB) getMulti(callers []*GetCaller) (err error) {
+	var wg sync.WaitGroup
+	wg.Add(len(callers))
+
+	respChan := make(chan *GetCaller, len(callers))
+
+	d.badger.View(func(txn *badger.Txn) error {
+		for _, caller := range callers {
+			err = d.getEncrypted(txn, caller)
+			if err != nil {
+				caller.err = err
+				return err
+			}
+
+			go func(caller *GetCaller) {
+				err = d.decryptAndUnmarshal(caller)
+				if err != nil || caller.err != nil {
+					caller.err = err
+				}
+				respChan <- caller
+			}(caller)
+		}
+		return nil
+	})
+
+	go func() {
+		for {
+			caller := <-respChan
+			if caller.err != nil {
+				err = caller.err
+				return
+			}
+
+			wg.Done()
+		}
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	wg.Wait()
+
+	return
+}
+
+func (d *DB) buildGetCaller(storeID []byte, dest interface{}) (caller *GetCaller, err error) {
+	if storeID == nil || len(storeID) <= 0 {
+		return nil, ErrEmptyID
+	}
+
+	tmpDbID := make([]byte, len(storeID))
+	copy(tmpDbID, storeID)
+
+	caller = new(GetCaller)
+	caller.dbID = tmpDbID
+	caller.pointer = dest
+
+	return
+}
+
+func (d *DB) getEncrypted(txn *badger.Txn, caller *GetCaller) (err error) {
+	var item *badger.Item
+	item, err = txn.Get(caller.dbID)
+	if err != nil {
+		return err
+	}
+	caller.encryptedAsBytes, err = item.ValueCopy(caller.encryptedAsBytes)
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
+func (d *DB) decryptAndUnmarshal(caller *GetCaller) error {
+	contentAsBytes, err := d.decryptData(caller.dbID, caller.encryptedAsBytes)
+	if err != nil {
+		return err
+	}
+
+	caller.asBytes = contentAsBytes
+
+	if caller.pointer == nil {
+		return nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewBuffer(contentAsBytes))
+	decoder.UseNumber()
+
+	uMarshalErr := decoder.Decode(caller.pointer)
+	if uMarshalErr != nil {
+		return uMarshalErr
+	}
+
+	return nil
 }

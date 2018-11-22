@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"github.com/alexandrestein/gotinydb/blevestore"
-	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/alexandrestein/gotinydb/transaction"
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/index/upsidedown"
@@ -35,7 +33,8 @@ type (
 		tr *transaction.Transaction
 	}
 
-	multiGetCaller struct {
+	// GetCaller provides a good way to get most element from database
+	GetCaller struct {
 		id                        string
 		dbID                      []byte
 		i                         int
@@ -124,7 +123,7 @@ func (c *Collection) SetBleveIndex(name string, bleveMapping mapping.IndexMappin
 			}
 
 			var clearBytes []byte
-			clearBytes, err = cipher.Decrypt(c.db.PrivateKey, item.Key(), itemAsEncryptedBytes)
+			clearBytes, err = c.db.decryptData(item.Key(), itemAsEncryptedBytes)
 
 			id := string(item.Key()[len(colPrefix):])
 
@@ -264,94 +263,40 @@ func (c *Collection) fromValueBytesGetContentToIndex(input []byte) interface{} {
 	return ret
 }
 
-func (c *Collection) getEncrypted(txn *badger.Txn, caller *multiGetCaller) (err error) {
-	if caller.id == "" {
-		return ErrEmptyID
-	}
-
-	c.buildDBKey(caller.id)
-
-	var item *badger.Item
-	item, err = txn.Get(caller.dbID)
-	if err != nil {
-		return err
-	}
-	caller.encryptedAsBytes, err = item.ValueCopy(caller.encryptedAsBytes)
-	if err != nil {
-		return err
-	}
-
-	return
-}
-
-func (c *Collection) buildGetCaller(txn *badger.Txn, id string, dest interface{}) (caller *multiGetCaller, err error) {
+func (c *Collection) buildGetCaller(id string, dest interface{}) (caller *GetCaller, err error) {
 	if id == "" {
 		return nil, ErrEmptyID
 	}
 
-	caller = new(multiGetCaller)
+	caller, err = c.db.buildGetCaller(c.buildDBKey(id), dest)
+	if err != nil {
+		return nil, err
+	}
+
 	caller.id = id
-	caller.pointer = dest
-	caller.dbID = c.buildDBKey(id)
 
 	return
 }
 
-func (c *Collection) get(txn *badger.Txn, id string, dest interface{}) (contentAsBytes []byte, err error) {
-	var caller *multiGetCaller
-	caller, err = c.buildGetCaller(txn, id, dest)
+func (c *Collection) get(id string, dest interface{}) (contentAsBytes []byte, err error) {
+	var caller *GetCaller
+	caller, err = c.buildGetCaller(id, dest)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.getEncrypted(txn, caller)
+	err = c.db.get(caller)
 	if err != nil {
 		return nil, err
 	}
-
-	err = c.decryptAndUnmarshal(caller)
-	if err != nil {
-		return nil, err
-	}
-
-	dest = caller.pointer
 
 	return caller.asBytes, nil
-}
-
-func (c *Collection) decryptAndUnmarshal(caller *multiGetCaller) (err error) {
-	var contentAsBytes []byte
-	contentAsBytes, err = c.db.decryptData(caller.dbID, caller.encryptedAsBytes)
-	if err != nil {
-		return err
-	}
-
-	caller.asBytes = contentAsBytes
-
-	if caller.pointer == nil {
-		return nil
-	}
-
-	decoder := json.NewDecoder(bytes.NewBuffer(contentAsBytes))
-	decoder.UseNumber()
-
-	uMarshalErr := decoder.Decode(caller.pointer)
-	if uMarshalErr != nil {
-		return uMarshalErr
-	}
-
-	return nil
 }
 
 // Get returns the saved element. It fills up the given dest pointer if provided.
 // It always returns the content as a stream of bytes and an error if any.
 func (c *Collection) Get(id string, dest interface{}) (contentAsBytes []byte, err error) {
-	c.db.badger.View(func(txn *badger.Txn) error {
-		contentAsBytes, err = c.get(txn, id, dest)
-		return nil
-	})
-
-	return
+	return c.get(id, dest)
 }
 
 // GetMulti open one badger transaction and get all document concurrently
@@ -362,58 +307,23 @@ func (c *Collection) GetMulti(ids []string, destinations []interface{}) (content
 
 	contentsAsBytes = make([][]byte, len(ids))
 
-	var wg sync.WaitGroup
-	wg.Add(len(ids))
-
-	respChan := make(chan *multiGetCaller, len(ids))
-
-	c.db.badger.View(func(txn *badger.Txn) error {
-		for i, id := range ids {
-			var caller *multiGetCaller
-			caller, err = c.buildGetCaller(txn, id, destinations[i])
-			if err != nil {
-				caller.err = err
-				return err
-			}
-
-			err = c.getEncrypted(txn, caller)
-			if err != nil {
-				caller.err = err
-				return err
-			}
-
-			go func() {
-				c.decryptAndUnmarshal(caller)
-				if caller.err != nil {
-					caller.err = err
-				}
-				respChan <- caller
-			}()
+	callers := make([]*GetCaller, len(ids))
+	for i, id := range ids {
+		var caller *GetCaller
+		caller, err = c.buildGetCaller(id, destinations[i])
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
 
-	go func() {
-		for {
-			caller := <-respChan
-			if caller.err != nil {
-				err = caller.err
-				return
-			}
+		callers[i] = caller
+	}
 
-			contentsAsBytes[caller.i] = caller.asBytes
-
-			wg.Done()
-		}
-	}()
-
+	err = c.db.getMulti(callers)
 	if err != nil {
 		return nil, err
 	}
 
-	wg.Wait()
-
-	return
+	return contentsAsBytes, nil
 }
 
 // Delete deletes all references of the given id.

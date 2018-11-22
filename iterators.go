@@ -3,7 +3,6 @@ package gotinydb
 import (
 	"encoding/json"
 
-	"github.com/alexandrestein/gotinydb/cipher"
 	"github.com/dgraph-io/badger"
 )
 
@@ -54,14 +53,14 @@ func (i *baseIterator) Close() {
 }
 
 func (i *CollectionIterator) get(dest interface{}) []byte {
-	caller := new(multiGetCaller)
+	caller := new(GetCaller)
 	caller.id = i.GetID()
 	caller.dbID = i.getDBKey()
 	caller.pointer = dest
 
 	caller.encryptedAsBytes, _ = i.item.ValueCopy(caller.encryptedAsBytes)
 
-	i.c.decryptAndUnmarshal(caller)
+	i.c.db.decryptAndUnmarshal(caller)
 
 	return caller.asBytes
 }
@@ -189,7 +188,7 @@ func (i *FileIterator) decrypt() ([]byte, error) {
 	}
 
 	var valAsBytes []byte
-	valAsBytes, err = cipher.Decrypt(i.db.PrivateKey, i.item.Key(), valAsEncryptedBytes)
+	valAsBytes, err = i.db.decryptData(i.item.Key(), valAsEncryptedBytes)
 	if err != nil {
 		return nil, err
 	}
