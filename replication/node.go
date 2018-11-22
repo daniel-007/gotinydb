@@ -4,14 +4,17 @@ import (
 	"math/big"
 	"net/url"
 
-	"github.com/alexandrestein/gotinydb/replication/securelink"
+	"github.com/hashicorp/raft"
 	"github.com/labstack/echo"
+
+	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
 
 type (
 	Node struct {
 		Echo        *echo.Echo
 		Certificate *securelink.Certificate
+		Raft        *raft.Raft
 
 		Port string
 	}

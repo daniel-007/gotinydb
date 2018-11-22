@@ -4,6 +4,7 @@ require (
 	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
 	github.com/RoaringBitmap/roaring v0.4.16 // indirect
 	github.com/Smerity/govarint v0.0.0-20150407073650-7265e41f48f1 // indirect
+	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/blevesearch/bleve v0.7.0
 	github.com/blevesearch/go-porterstemmer v1.0.1 // indirect
 	github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f // indirect
@@ -11,12 +12,16 @@ require (
 	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/couchbase/vellum v0.0.0-20180910213445-01d5c56e6095 // indirect
 	github.com/dgraph-io/badger v0.0.0-00000000000000-439fd464b155d419201a5c195c70d40618376776
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102 // indirect
 	github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712 // indirect
 	github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/protobuf v1.2.0 // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
+	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
+	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect
+	github.com/hashicorp/raft v1.0.0
 	github.com/labstack/echo v3.3.5+incompatible
 	github.com/labstack/gommon v0.2.8
 	github.com/mattn/go-colorable v0.0.9 // indirect
@@ -32,7 +37,7 @@ require (
 	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
 	github.com/willf/bitset v1.1.9 // indirect
 	golang.org/x/crypto v0.0.0-20181112202954-3d3f9f413869
-	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a // indirect
+	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
 	golang.org/x/sys v0.0.0-20181119195503-ec83556a53fe // indirect
 	gopkg.in/square/go-jose.v2 v2.1.9
 )

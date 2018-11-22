@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
-
-	"github.com/alexandrestein/gotinydb/replication/common"
+	"golang.org/x/net/websocket"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 type (
@@ -31,12 +31,15 @@ var (
 func (n *Node) settupHandlers() {
 	handler := &handler{n}
 
+	handler.Echo.Use(middleware.Recover())
+
 	apiGroup := handler.Echo.Group(
 		fmt.Sprintf("/%s/", APIVersion),
 		handler.verifyCertificateMiddleware,
 	)
 
 	apiGroup.POST(PostCertificatePATH, handler.returnCert)
+	apiGroup.GET(PostRaftStreamerPATH, handler.raftStream)
 
 }
 
@@ -65,21 +68,43 @@ func (h *handler) returnCert(c echo.Context) error {
 	return c.JSONBlob(http.StatusOK, clientCertAsBytes)
 }
 
-func (h *handler) serverConnectivity(c echo.Context) error {
-	addrs, err := common.GetAddresses()
-	if err != nil {
-		return err
-	}
+func (h *handler) raftStream(c echo.Context) error {
+	websocket.Handler(func(ws *websocket.Conn) {
+		defer ws.Close()
+		for {
+			// Write
+			err := websocket.Message.Send(ws, "Hello, Client!")
+			if err != nil {
+				c.Logger().Error(err)
+			}
 
-	ret := &struct {
-		Addrs []string
-		Port  string
-	}{
-		addrs, h.Port,
-	}
-
-	return c.JSON(http.StatusOK, ret)
+			// Read
+			msg := ""
+			err = websocket.Message.Receive(ws, &msg)
+			if err != nil {
+				c.Logger().Error(err)
+			}
+			fmt.Printf("%s\n", msg)
+		}
+	}).ServeHTTP(c.Response(), c.Request())
+	return nil
 }
+
+// func (h *handler) serverConnectivity(c echo.Context) error {
+// 	addrs, err := common.GetAddresses()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	ret := &struct {
+// 		Addrs []string
+// 		Port  string
+// 	}{
+// 		addrs, h.Port,
+// 	}
+
+// 	return c.JSON(http.StatusOK, ret)
+// }
 
 func (h *handler) verifyCertificateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(c echo.Context) error {
