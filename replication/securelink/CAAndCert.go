@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"time"
 )
 
@@ -37,13 +38,6 @@ type (
 func buildCertPEM(input []byte) []byte {
 	return pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: input,
-	})
-}
-
-func buildEcKeyPEM(input []byte) []byte {
-	return pem.EncodeToMemory(&pem.Block{
-		Type:  "EC PRIVATE KEY",
 		Bytes: input,
 	})
 }
@@ -121,6 +115,11 @@ func NewCA(keyType KeyType, keyLength KeyLength, lifeTime time.Duration, certTem
 	ca.CertPool = ca.GetCertPool()
 
 	return ca, nil
+}
+
+// ID returns the id as big.Int pointer
+func (c *Certificate) ID() *big.Int {
+	return c.Cert.SerialNumber
 }
 
 // NewCert returns a new certificate pointer which can be used for tls connection

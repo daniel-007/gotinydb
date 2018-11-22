@@ -12,7 +12,7 @@ require (
 	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/couchbase/vellum v0.0.0-20180910213445-01d5c56e6095 // indirect
 	github.com/dgraph-io/badger v0.0.0-00000000000000-439fd464b155d419201a5c195c70d40618376776
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102 // indirect
 	github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712 // indirect
 	github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd // indirect
@@ -39,5 +39,4 @@ require (
 	golang.org/x/crypto v0.0.0-20181112202954-3d3f9f413869
 	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
 	golang.org/x/sys v0.0.0-20181119195503-ec83556a53fe // indirect
-	gopkg.in/square/go-jose.v2 v2.1.9
 )

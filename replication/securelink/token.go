@@ -1,143 +1,103 @@
 package securelink
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/alexandrestein/gotinydb/replication/common"
 	"github.com/alexandrestein/gotinydb/replication/securelink/securecache"
-	"github.com/muesli/cache2go"
+	jwt "github.com/dgrijalva/jwt-go"
 	uuid "github.com/satori/go.uuid"
-	jose "gopkg.in/square/go-jose.v2"
 )
 
-type (
-	// Token defines sign objects which
-	Token struct {
-		ID              string
-		IssuerID        string
-		IssuerAddresses []string
-		CACertSignature []byte
-
-		Values url.Values
-	}
-)
-
-func (c *Certificate) getTokenSignAlgorithm() jose.SignatureAlgorithm {
+func (c *Certificate) getTokenSignAlgorithm() jwt.SigningMethod {
 	if c.KeyPair.Type == KeyTypeRSA {
 		if c.KeyPair.Length == KeyLengthRsa2048 {
-			return jose.RS256
+			return jwt.GetSigningMethod("RS256")
 		} else if c.KeyPair.Length == KeyLengthRsa3072 {
-			return jose.RS384
+			return jwt.GetSigningMethod("RS384")
 		} else if c.KeyPair.Length == KeyLengthRsa4096 || c.KeyPair.Length == KeyLengthRsa8192 {
-			return jose.RS512
+			return jwt.GetSigningMethod("RS512")
 		}
 	} else if c.KeyPair.Type == KeyTypeEc {
 		if c.KeyPair.Length == KeyLengthEc256 {
-			return jose.ES256
+			return jwt.GetSigningMethod("ES256")
 		} else if c.KeyPair.Length == KeyLengthEc384 {
-			return jose.ES384
+			return jwt.GetSigningMethod("ES384")
 		} else if c.KeyPair.Length == KeyLengthEc521 {
-			return jose.ES512
+			return jwt.GetSigningMethod("ES512")
 		}
 	}
-	return ""
+	return nil
 }
 
 // GetToken returns a string representation of a temporary token (10 minutes validity with cache2go)
-func (c *Certificate) GetToken(data url.Values) (string, error) {
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: c.getTokenSignAlgorithm(), Key: c.KeyPair.Private}, nil)
+func (c *Certificate) GetToken(portString string) (string, error) {
+	reqID, claims := c.buildNewConnectionRequest(portString)
+
+	token := jwt.NewWithClaims(c.getTokenSignAlgorithm(), claims)
+
+	tokenString, err := token.SignedString(c.KeyPair.Private)
 	if err != nil {
 		return "", err
 	}
 
-	reqID, token := c.buildNewConnectionRequest(data)
+	securecache.WaitingRequestTable.Add(reqID, securecache.CacheValueWaitingRequestsTimeOut, token)
 
-	object, err := signer.Sign(token)
-	if err != nil {
-		return "", err
-	}
-
-	serialized, err := object.CompactSerialize()
-	if err != nil {
-		return "", err
-	}
-
-	securecache.WaitingRequestTable.Add(reqID, securecache.CacheValueWaitingRequestsTimeOut, object.Signatures[0].Signature)
-
-	return serialized, nil
+	return tokenString, nil
 }
 
 // ReadToken returns a Token pointer from it's string representation
-func (c *Certificate) ReadToken(token string, verify bool) (_ *Token, signature []byte, _ error) {
-	object, err := jose.ParseSigned(token)
+func (c *Certificate) ReadToken(tokenString string, verify bool) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return c.KeyPair.Public, nil
+	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	var output []byte
-	if verify {
-		output, err = object.Verify(c.KeyPair.Public)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		output = object.UnsafePayloadWithoutVerification()
+	if !token.Valid && verify {
+		return nil, fmt.Errorf("token invalid")
 	}
 
-	signature = object.Signatures[0].Signature
-
-	values := new(Token)
-	err = json.Unmarshal(output, values)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if values.ID == "" {
-		return nil, nil, fmt.Errorf("the request token does not containe any ID")
-	}
-
-	return values, signature, nil
+	return token, nil
 }
 
 // VerifyToken returns true if the string representation of the token has valid signature
 // and it can be found in the list of active token (cache2go)
-func (c *Certificate) VerifyToken(token string) bool {
-	values, signature, err := c.ReadToken(token, true)
+func (c *Certificate) VerifyToken(tokenString string) bool {
+	token, err := c.ReadToken(tokenString, true)
 	if err != nil {
 		return false
 	}
 
-	var res *cache2go.CacheItem
-	res, err = securecache.WaitingRequestTable.Value(values.ID)
+	id := token.Claims.(jwt.MapClaims)["jti"].(string)
+	_, err = securecache.WaitingRequestTable.Delete(id)
 	if err != nil {
 		return false
 	}
 
-	if fmt.Sprintf("%x", res.Data().([]byte)) == fmt.Sprintf("%x", signature) {
-		securecache.WaitingRequestTable.Delete(values.ID)
-		return true
-	}
-
-	return false
+	return true
 }
 
-func (c *Certificate) buildNewConnectionRequest(data url.Values) (requestID string, reqAsJSON []byte) {
-	certSignature := make([]byte, len(c.Cert.Signature))
-	copy(certSignature, c.Cert.Signature)
+func (c *Certificate) buildNewConnectionRequest(portString string) (requestID string, _ jwt.Claims) {
+	caCertSignature := make([]byte, len(c.CACert.Signature))
+	copy(caCertSignature, c.CACert.Signature)
 
 	addresses, _ := common.GetAddresses()
 
-	req := &Token{
-		ID:              uuid.NewV4().String(),
-		IssuerID:        c.Cert.SerialNumber.String(),
-		IssuerAddresses: addresses,
-		CACertSignature: certSignature,
-
-		Values: data,
+	reqID := uuid.NewV4().String()
+	req := jwt.MapClaims{
+		"aud":        jwtNewNodeAudience,
+		"exp":        jwtNewNodeExpiresAt(),
+		"jti":        reqID,
+		"iat":        jwtNewNodeIssuedAt(),
+		"iss":        c.ID().String(),
+		"nbf":        jwtNewNodeNotBefore(),
+		"sub":        jwtNewNodeSubject,
+		"issAddrs":   addresses,
+		"issPort":    portString,
+		"caCertSign": caCertSignature,
 	}
 
-	reqAsJSON, _ = json.Marshal(req)
-	return req.ID, reqAsJSON
+	return reqID, req
 }

@@ -9,6 +9,9 @@ import (
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/alexandrestein/gotinydb/replication/securelink/securecache"
+	"github.com/satori/go.uuid"
 )
 
 // Defines the supported key type
@@ -27,6 +30,15 @@ const (
 	KeyLengthEc256 KeyLength = "EC 256"
 	KeyLengthEc384 KeyLength = "EC 384"
 	KeyLengthEc521 KeyLength = "EC 521"
+)
+
+var (
+	jwtNewNodeAudience  = "newClient"
+	jwtNewNodeExpiresAt = func() int64 { return time.Now().Add(securecache.CacheValueWaitingRequestsTimeOut).Unix() }
+	jwtNewNodeID        = uuid.NewV4().String
+	jwtNewNodeIssuedAt  = func() int64 { return time.Now().Unix() }
+	jwtNewNodeNotBefore = jwtNewNodeIssuedAt
+	jwtNewNodeSubject   = "go-DB"
 )
 
 // Those variables defines the most common package errors
@@ -85,14 +97,6 @@ func GetCertTemplate(names []string, ips []net.IP) *x509.Certificate {
 
 func getSubject() pkix.Name {
 	return pkix.Name{
-		// Country:            []string{},
-		// Organization:       []string{},
-		// OrganizationalUnit: []string{},
-		// Locality:           []string{},
-		// Province:           []string{},
-		// StreetAddress:      []string{},
-		// PostalCode:         []string{},
-		// SerialNumber:       "",
 		CommonName: "secure-link",
 	}
 }

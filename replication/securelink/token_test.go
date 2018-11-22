@@ -1,17 +1,15 @@
 package securelink_test
 
 import (
-	"net/url"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 func TestToken(t *testing.T) {
-	tokenValues := url.Values{}
-	tokenValues.Set("port", ":1323")
-
 	tests := []struct {
 		Name   string
 		Type   securelink.KeyType
@@ -41,7 +39,13 @@ func TestToken(t *testing.T) {
 			}
 
 			var token string
-			token, err = ca.GetToken(tokenValues)
+			token, err = ca.GetToken(":2313")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var tokenObject *jwt.Token
+			tokenObject, err = ca.ReadToken(token, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -54,16 +58,30 @@ func TestToken(t *testing.T) {
 				t.Fatalf("the token must be expired but it's not")
 			}
 
-			token = token[:16] + "e" + token[17:]
+			if ca.VerifyToken(token[:16] + "e" + token[17:]) {
+				t.Fatalf("the token must be invalid but it is valid")
+			}
+
+			fmt.Println("l", len(token))
+			fmt.Println(token)
+			// {"alg":"none","typ":"JWT"}
+			token = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0" + token[36:]
+			if ca.VerifyToken(token) {
+				t.Fatalf("the token must be invalid but it is valid")
+			}
+			fmt.Println("l", len(token))
+			fmt.Println(token)
+			// {"alg":none,"typ":"JWT"}
+			token = "eyJhbGciOm5vbmUsInR5cCI6IkpXVCJ9" + token[35:]
 			if ca.VerifyToken(token) {
 				t.Fatalf("the token must be invalid but it is valid")
 			}
 
-			tokenObject, _, _ := ca.ReadToken(token, false)
-			if tokenObject.Values.Get("port") != tokenValues.Get("port") {
-				t.Fatalf("base value must be equal to restored value but not\n\t%s\n\t%s", tokenObject.Values.Get("port"), tokenValues.Get("port"))
+			fmt.Println("l", len(token))
+			fmt.Println(token)
+			if issPort := tokenObject.Claims.(jwt.MapClaims)["issPort"].(string); issPort != ":2313" {
+				t.Fatalf("base value must be equal to restored value but not\n\t%s\n\t%s", issPort, ":2313")
 			}
-
 		})
 	}
 }

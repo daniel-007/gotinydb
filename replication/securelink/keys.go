@@ -143,11 +143,11 @@ func UnmarshalKeyPair(input []byte) (*KeyPair, error) {
 		ret.Private = privateKey
 		ret.Public = privateKey.Public()
 	case KeyTypeEc:
-
 		privateKey, err := x509.ParseECPrivateKey(tmp.Private)
 		if err != nil {
 			return nil, err
 		}
+
 		ret.Private = privateKey
 		ret.Public = privateKey.Public()
 	}
