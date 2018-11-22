@@ -29,17 +29,17 @@ var (
 )
 
 func (n *Node) settupHandlers() {
-	handler := &handler{n}
+	h := &handler{n}
 
-	handler.Echo.Use(middleware.Recover())
+	h.Echo.Use(middleware.Recover())
 
-	apiGroup := handler.Echo.Group(
+	apiGroup := h.Echo.Group(
 		fmt.Sprintf("/%s/", APIVersion),
-		handler.verifyCertificateMiddleware,
+		h.verifyCertificateMiddleware,
 	)
 
-	apiGroup.POST(PostCertificatePATH, handler.returnCert)
-	apiGroup.GET(PostRaftStreamerPATH, handler.raftStream)
+	apiGroup.POST(PostCertificatePATH, h.returnCert)
+	apiGroup.GET(PostRaftStreamerPATH, h.raftStream)
 
 }
 

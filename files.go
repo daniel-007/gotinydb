@@ -69,7 +69,7 @@ func (d *DB) PutFile(id string, name string, reader io.Reader) (n int, err error
 	// Open a loop
 	for true {
 		// Initialize the read buffer
-		buff := make([]byte, fileChuckSize)
+		buff := make([]byte, FileChuckSize)
 		var nWritten int
 		nWritten, err = reader.Read(buff)
 		// The read is done and it returns
@@ -111,8 +111,8 @@ func (d *DB) writeFileChunk(id string, chunk int, content []byte) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if fileChuckSize < len(content) {
-		return fmt.Errorf("the maximum chunk size is %d bytes long but the content to write is %d bytes long", fileChuckSize, len(content))
+	if FileChuckSize < len(content) {
+		return fmt.Errorf("the maximum chunk size is %d bytes long but the content to write is %d bytes long", FileChuckSize, len(content))
 	}
 
 	tx := transaction.New(ctx)
@@ -177,7 +177,7 @@ func (d *DB) buildMeta(id, name string) (meta *FileMeta) {
 	meta.Name = name
 	meta.Size = 0
 	meta.LastModified = time.Now()
-	meta.ChuckSize = fileChuckSize
+	meta.ChuckSize = FileChuckSize
 
 	return
 }
@@ -484,7 +484,7 @@ func (r *readWriter) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 
-	freeToWriteInThisChunk := fileChuckSize - inside
+	freeToWriteInThisChunk := FileChuckSize - inside
 	if freeToWriteInThisChunk > len(p) {
 		toWrite := []byte{}
 		if inside <= len(valAsBytes) {
@@ -513,7 +513,7 @@ func (r *readWriter) Write(p []byte) (n int, err error) {
 	done := false
 
 newLoop:
-	newEnd := n + fileChuckSize
+	newEnd := n + FileChuckSize
 	if newEnd > len(p) {
 		newEnd = len(p)
 		done = true
@@ -533,7 +533,7 @@ newLoop:
 		return n, err
 	}
 
-	n += fileChuckSize
+	n += FileChuckSize
 	block++
 
 	if done {

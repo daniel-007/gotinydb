@@ -23,7 +23,7 @@ require (
 	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect
 	github.com/hashicorp/raft v1.0.0
 	github.com/labstack/echo v3.3.5+incompatible
-	github.com/labstack/gommon v0.2.8
+	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
