@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -19,14 +20,17 @@ type (
 		Echo        *echo.Echo
 		Certificate *securelink.Certificate
 
-		Raft          *raft.Raft
-		raftChan      chan<- bool
-		raftTransport *transport
+		Raft                  *raft.Raft
+		raftChan              chan<- bool
+		raftTransport         *Transport
+		raftFileSnapshotStore *raft.FileSnapshotStore
+
+		Path string
 
 		Addr net.Addr
 	}
 
-	transport struct {
+	Transport struct {
 		acceptChan chan net.Conn
 		addr       net.Addr
 
@@ -34,20 +38,30 @@ type (
 	}
 )
 
-func NewNode(addr net.Addr, raftStore RaftStore, cert *securelink.Certificate) (*Node, error) {
+func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.Certificate, bootstrap bool) (*Node, error) {
 	n := new(Node)
+
+	err := os.MkdirAll(path, 1740)
+	if err != nil {
+		return nil, err
+	}
+
+	n.raftFileSnapshotStore, err = raft.NewFileSnapshotStore(path, 10, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	n.Addr = addr
 	n.Certificate = cert
 
-	err := n.startHTTP()
+	err = n.startHTTP()
 	if err != nil {
 		return nil, err
 	}
 
 	n.buildRaftTransport()
 
-	err = n.startRaft(raftStore)
+	err = n.startRaft(raftStore, bootstrap)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +90,18 @@ func (n *Node) GetID() *big.Int {
 
 func (n *Node) buildRaftTransport() {
 	ch := make(chan net.Conn)
-	n.raftTransport = &transport{
+	n.raftTransport = &Transport{
 		acceptChan: ch,
 		addr:       n.Addr,
 		cert:       n.Certificate,
 	}
 }
 
-func (t *transport) Accept() (net.Conn, error) {
+func (n *Node) GetRaftTransport() *Transport {
+	return n.raftTransport
+}
+
+func (t *Transport) Accept() (net.Conn, error) {
 	err := fmt.Errorf("connection looks closed")
 
 	if t.acceptChan == nil {
@@ -97,7 +115,7 @@ func (t *transport) Accept() (net.Conn, error) {
 	return conn, nil
 }
 
-func (t *transport) Close() error {
+func (t *Transport) Close() error {
 	if t.acceptChan != nil {
 		close(t.acceptChan)
 		t.acceptChan = nil
@@ -105,11 +123,11 @@ func (t *transport) Close() error {
 	return nil
 }
 
-func (t *transport) Addr() net.Addr {
+func (t *Transport) Addr() net.Addr {
 	return t.addr
 }
 
-func (t *transport) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
+func (t *Transport) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
 
 	location := &url.URL{
 		Scheme: "https",

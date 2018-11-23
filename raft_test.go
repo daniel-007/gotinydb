@@ -24,12 +24,26 @@ func TestRaftStores(t *testing.T) {
 	t.Run("log", func(t *testing.T) {
 		testLogStore(t, raftStore)
 	})
+	t.Run("snapshot", func(t *testing.T) {
+		testSnapshotStore(t, db, raftStore)
+	})
 }
 
 func testStableStore(t *testing.T, rs *raftStore) {
 	key := []byte("key")
 	val := []byte("val")
-	err := rs.Set(key, val)
+
+	_, err := rs.Get(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rs.GetUint64(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = nil
+
+	err = rs.Set(key, val)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,4 +174,25 @@ func testLogStoreFirstAndLast(t *testing.T, rs *raftStore, f, l uint64) {
 			t.Logf("the last index is %d", i)
 		}
 	}
+}
+
+func testSnapshotStore(t *testing.T, db *DB, rs *raftStore) {
+	t.SkipNow()
+	// ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "ca")
+	// cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node")
+
+	// addr, err := common.NewAddr(1323)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	// t.Log(addr.Addrs)
+
+	// node, err := replication.NewNode(addr, rs, cert)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// tr := node.GetRaftTransport()
+
+	// rs.Create(raft.SnapshotVersionMax, 1, 1, )
 }

@@ -1,6 +1,50 @@
 package common
 
-import "net"
+import (
+	"fmt"
+	"net"
+)
+
+type (
+	Addr struct {
+		MainAddr string
+		Port     uint16
+		Addrs    []string
+	}
+)
+
+func NewAddr(port uint16) (*Addr, error) {
+	addrs, err := GetAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("no address found")
+	}
+
+	return &Addr{
+		MainAddr: addrs[0],
+		Port:     port,
+		Addrs:    addrs,
+	}, nil
+}
+
+func (a *Addr) SwitchMain(i int) string {
+	if i > len(a.Addrs)-1 {
+		return ""
+	}
+	a.MainAddr = a.Addrs[i]
+	return a.String()
+}
+
+func (a *Addr) String() string {
+	return fmt.Sprintf("%s:%d", a.MainAddr, a.Port)
+}
+
+func (a *Addr) Network() string {
+	return "tcp"
+}
 
 func GetAddresses() ([]string, error) {
 	interfaces, err := net.Interfaces()

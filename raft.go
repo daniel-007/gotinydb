@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 
 	"github.com/alexandrestein/gotinydb/replication"
@@ -86,6 +85,9 @@ func (rs *raftStore) Get(key []byte) ([]byte, error) {
 
 	caller, err := rs.DB.Get(storeKey)
 	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return []byte{}, nil
+		}
 		return nil, err
 	}
 
@@ -104,8 +106,14 @@ func (rs *raftStore) SetUint64(key []byte, val uint64) error {
 // StableStore interface
 func (rs *raftStore) GetUint64(key []byte) (uint64, error) {
 	bytesAsUint64, err := rs.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	if len(bytesAsUint64) == 0 {
+		return 0, nil
+	}
 
-	return binary.BigEndian.Uint64(bytesAsUint64), err
+	return binary.BigEndian.Uint64(bytesAsUint64), nil
 }
 
 func (rs *raftStore) firstOrLastLogIndex(first bool) (i uint64, _ error) {
@@ -245,24 +253,24 @@ func (rs *raftStore) DeleteRange(min, max uint64) error {
 	return rs.waitForWriteIsDone(tx)
 }
 
-// Create is used to begin a snapshot at a given index and term, and with
-// the given committed configuration. The version parameter controls
-// which snapshot version to create.
-// SnapshotStore interface
-func (rs *raftStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
+// // Create is used to begin a snapshot at a given index and term, and with
+// // the given committed configuration. The version parameter controls
+// // which snapshot version to create.
+// // SnapshotStore interface
+// func (rs *raftStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
 
-}
+// }
 
-// List is used to list the available snapshots in the store.
-// It should return then in descending order, with the highest index first.
-// SnapshotStore interface
-func (rs *raftStore) List() ([]*raft.SnapshotMeta, error) {
+// // List is used to list the available snapshots in the store.
+// // It should return then in descending order, with the highest index first.
+// // SnapshotStore interface
+// func (rs *raftStore) List() ([]*raft.SnapshotMeta, error) {
 
-}
+// }
 
-// Open takes a snapshot ID and provides a ReadCloser. Once close is
-// called it is assumed the snapshot is no longer needed.
-// SnapshotStore interface
-func (rs *raftStore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
+// // Open takes a snapshot ID and provides a ReadCloser. Once close is
+// // called it is assumed the snapshot is no longer needed.
+// // SnapshotStore interface
+// func (rs *raftStore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
 
-}
+// }

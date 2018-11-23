@@ -1,6 +1,7 @@
 package replication
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -10,11 +11,11 @@ type (
 	RaftStore interface {
 		raft.StableStore
 		raft.LogStore
-		raft.SnapshotStore
+		// raft.SnapshotStore
 	}
 )
 
-func (n *Node) startRaft(raftStore RaftStore) (err error) {
+func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 	n.raftChan = make(chan<- bool, 10)
 	raftConfig := &raft.Config{
 		ProtocolVersion:    raft.ProtocolVersionMax,
@@ -32,7 +33,34 @@ func (n *Node) startRaft(raftStore RaftStore) (err error) {
 		NotifyCh:           n.raftChan,
 	}
 
-	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, nil, nil)
-	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, raftStore, nil)
+	err = raft.ValidateConfig(raftConfig)
+	if err != nil {
+		return err
+	}
+
+	tr := raft.NewNetworkTransport(n.raftTransport, 10, time.Second*2, nil)
+
+	if bootstrap {
+		fmt.Println("bootstrap")
+		servers := raft.Configuration{
+			Servers: []raft.Server{
+				raft.Server{
+					Suffrage: raft.Voter,
+					ID:       raft.ServerID(n.GetID().String()),
+					Address:  raft.ServerAddress(n.Addr.String()),
+				},
+			},
+		}
+		err = raft.BootstrapCluster(raftConfig, raftStore, raftStore, n.raftFileSnapshotStore, tr, servers)
+		if err != nil {
+			fmt.Println("bootstrap err", err)
+			return err
+		}
+
+	}
+
+	fmt.Println("after bootstrap")
+	// n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, nil, nil)
+	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, n.raftFileSnapshotStore, tr)
 	return err
 }
