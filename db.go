@@ -543,14 +543,14 @@ func (d *DB) getMulti(callers []*GetCaller) (err error) {
 
 	d.badger.View(func(txn *badger.Txn) error {
 		for _, caller := range callers {
-			err = d.getEncrypted(txn, caller)
+			err := d.getEncrypted(txn, caller)
 			if err != nil {
 				caller.err = err
 				return err
 			}
 
 			go func(caller *GetCaller) {
-				err = d.decryptAndUnmarshal(caller)
+				err := d.decryptAndUnmarshal(caller)
 				if err != nil || caller.err != nil {
 					caller.err = err
 				}

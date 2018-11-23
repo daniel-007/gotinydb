@@ -1,7 +1,6 @@
 package securelink_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -62,23 +61,17 @@ func TestToken(t *testing.T) {
 				t.Fatalf("the token must be invalid but it is valid")
 			}
 
-			fmt.Println("l", len(token))
-			fmt.Println(token)
 			// {"alg":"none","typ":"JWT"}
 			token = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0" + token[36:]
 			if ca.VerifyToken(token) {
 				t.Fatalf("the token must be invalid but it is valid")
 			}
-			fmt.Println("l", len(token))
-			fmt.Println(token)
 			// {"alg":none,"typ":"JWT"}
 			token = "eyJhbGciOm5vbmUsInR5cCI6IkpXVCJ9" + token[35:]
 			if ca.VerifyToken(token) {
 				t.Fatalf("the token must be invalid but it is valid")
 			}
 
-			fmt.Println("l", len(token))
-			fmt.Println(token)
 			if issPort := tokenObject.Claims.(jwt.MapClaims)["issPort"].(string); issPort != ":2313" {
 				t.Fatalf("base value must be equal to restored value but not\n\t%s\n\t%s", issPort, ":2313")
 			}
