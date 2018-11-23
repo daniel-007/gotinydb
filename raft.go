@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 
+	"github.com/alexandrestein/gotinydb/replication"
 	"github.com/alexandrestein/gotinydb/transaction"
 	"github.com/dgraph-io/badger"
 	"github.com/hashicorp/raft"
@@ -20,6 +22,11 @@ type (
 
 func (d *DB) startRaft() error {
 	return nil
+}
+
+func (d *DB) GetRaftStore() replication.RaftStore {
+	rs := &raftStore{d}
+	return rs
 }
 
 func (rs *raftStore) buildStoreKey(prefix byte, key []byte) []byte {
@@ -238,24 +245,24 @@ func (rs *raftStore) DeleteRange(min, max uint64) error {
 	return rs.waitForWriteIsDone(tx)
 }
 
-// // Create is used to begin a snapshot at a given index and term, and with
-// // the given committed configuration. The version parameter controls
-// // which snapshot version to create.
-// // SnapshotStore interface
-// func (rs *raftStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
+// Create is used to begin a snapshot at a given index and term, and with
+// the given committed configuration. The version parameter controls
+// which snapshot version to create.
+// SnapshotStore interface
+func (rs *raftStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
 
-// }
+}
 
-// // List is used to list the available snapshots in the store.
-// // It should return then in descending order, with the highest index first.
-// // SnapshotStore interface
-// func (rs *raftStore) List() ([]*raft.SnapshotMeta, error) {
+// List is used to list the available snapshots in the store.
+// It should return then in descending order, with the highest index first.
+// SnapshotStore interface
+func (rs *raftStore) List() ([]*raft.SnapshotMeta, error) {
 
-// }
+}
 
-// // Open takes a snapshot ID and provides a ReadCloser. Once close is
-// // called it is assumed the snapshot is no longer needed.
-// // SnapshotStore interface
-// func (rs *raftStore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
+// Open takes a snapshot ID and provides a ReadCloser. Once close is
+// called it is assumed the snapshot is no longer needed.
+// SnapshotStore interface
+func (rs *raftStore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
 
-// }
+}

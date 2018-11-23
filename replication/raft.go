@@ -32,6 +32,7 @@ func (n *Node) startRaft(raftStore RaftStore) (err error) {
 		NotifyCh:           n.raftChan,
 	}
 
+	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, nil, nil)
 	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, raftStore, nil)
 	return err
 }
