@@ -35,12 +35,12 @@ type (
 
 	// GetCaller provides a good way to get most element from database
 	GetCaller struct {
-		id                        string
-		dbID                      []byte
-		i                         int
-		pointer                   interface{}
-		asBytes, encryptedAsBytes []byte
-		err                       error
+		ID                      string
+		DbID                    []byte
+		i                       int
+		Dest                    interface{}
+		Bytes, encryptedAsBytes []byte
+		Error                   error
 	}
 )
 
@@ -73,7 +73,7 @@ func (c *Collection) SetBleveIndex(name string, bleveMapping mapping.IndexMappin
 	// Check there is no conflict name or hash
 	for _, i := range c.BleveIndexes {
 		if i.Name == name {
-			return ErrNameAllreadyExists
+			return ErrNameAlreadyExists
 		}
 		if reflect.DeepEqual(i.Prefix, prefix) {
 			return ErrHashCollision
@@ -273,7 +273,7 @@ func (c *Collection) buildGetCaller(id string, dest interface{}) (caller *GetCal
 		return nil, err
 	}
 
-	caller.id = id
+	caller.ID = id
 
 	return
 }
@@ -290,7 +290,7 @@ func (c *Collection) get(id string, dest interface{}) (contentAsBytes []byte, er
 		return nil, err
 	}
 
-	return caller.asBytes, nil
+	return caller.Bytes, nil
 }
 
 // Get returns the saved element. It fills up the given dest pointer if provided.

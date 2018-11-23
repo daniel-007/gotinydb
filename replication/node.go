@@ -17,11 +17,11 @@ type (
 		Raft     *raft.Raft
 		raftChan chan<- bool
 
-		Port string
+		Address, Port string
 	}
 )
 
-func NewNode(raftStore RaftStore) (*Node, error) {
+func NewNode(address, port string, raftStore RaftStore) (*Node, error) {
 	n := new(Node)
 	err := n.startRaft(raftStore)
 	if err != nil {
@@ -36,4 +36,7 @@ func (n *Node) GetToken() (string, error) {
 
 func (n *Node) GetID() *big.Int {
 	return n.Certificate.Cert.SerialNumber
+}
+
+func (n *Node) RaftTransport() {
 }

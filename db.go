@@ -105,7 +105,7 @@ func Open(path string, configKey [32]byte) (db *DB, err error) {
 		}
 	}
 
-	return db, nil
+	return db, db.startRaft()
 }
 
 func (d *DB) startBackgroundLoops() {
@@ -545,14 +545,14 @@ func (d *DB) getMulti(callers []*GetCaller) (err error) {
 		for _, caller := range callers {
 			err := d.getEncrypted(txn, caller)
 			if err != nil {
-				caller.err = err
+				caller.Error = err
 				return err
 			}
 
 			go func(caller *GetCaller) {
 				err := d.decryptAndUnmarshal(caller)
-				if err != nil || caller.err != nil {
-					caller.err = err
+				if err != nil || caller.Error != nil {
+					caller.Error = err
 				}
 				respChan <- caller
 			}(caller)
@@ -563,8 +563,8 @@ func (d *DB) getMulti(callers []*GetCaller) (err error) {
 	go func() {
 		for {
 			caller := <-respChan
-			if caller.err != nil {
-				err = caller.err
+			if caller.Error != nil {
+				err = caller.Error
 				return
 			}
 
@@ -590,15 +590,15 @@ func (d *DB) buildGetCaller(storeID []byte, dest interface{}) (caller *GetCaller
 	copy(tmpDbID, storeID)
 
 	caller = new(GetCaller)
-	caller.dbID = tmpDbID
-	caller.pointer = dest
+	caller.DbID = tmpDbID
+	caller.Dest = dest
 
 	return
 }
 
 func (d *DB) getEncrypted(txn *badger.Txn, caller *GetCaller) (err error) {
 	var item *badger.Item
-	item, err = txn.Get(caller.dbID)
+	item, err = txn.Get(caller.DbID)
 	if err != nil {
 		return err
 	}
@@ -611,21 +611,21 @@ func (d *DB) getEncrypted(txn *badger.Txn, caller *GetCaller) (err error) {
 }
 
 func (d *DB) decryptAndUnmarshal(caller *GetCaller) error {
-	contentAsBytes, err := d.decryptData(caller.dbID, caller.encryptedAsBytes)
+	contentAsBytes, err := d.decryptData(caller.DbID, caller.encryptedAsBytes)
 	if err != nil {
 		return err
 	}
 
-	caller.asBytes = contentAsBytes
+	caller.Bytes = contentAsBytes
 
-	if caller.pointer == nil {
+	if caller.Dest == nil {
 		return nil
 	}
 
 	decoder := json.NewDecoder(bytes.NewBuffer(contentAsBytes))
 	decoder.UseNumber()
 
-	uMarshalErr := decoder.Decode(caller.pointer)
+	uMarshalErr := decoder.Decode(caller.Dest)
 	if uMarshalErr != nil {
 		return uMarshalErr
 	}

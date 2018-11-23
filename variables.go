@@ -24,12 +24,12 @@ const (
 
 // This defines most of the package errors
 var (
-	ErrNotFound           = fmt.Errorf("not found")
-	ErrHashCollision      = fmt.Errorf("the name is in collision with an other element")
-	ErrEmptyID            = fmt.Errorf("ID must be provided")
-	ErrIndexNotFound      = fmt.Errorf("index not found")
-	ErrNameAllreadyExists = fmt.Errorf("element with the same name allready exists")
-	ErrGetMultiNotEqual   = fmt.Errorf("you must provied the same number of ids and destinations")
+	ErrNotFound          = fmt.Errorf("not found")
+	ErrHashCollision     = fmt.Errorf("the name is in collision with an other element")
+	ErrEmptyID           = fmt.Errorf("ID must be provided")
+	ErrIndexNotFound     = fmt.Errorf("index not found")
+	ErrNameAlreadyExists = fmt.Errorf("element with the same name already exists")
+	ErrGetMultiNotEqual  = fmt.Errorf("you must provied the same number of ids and destinations")
 
 	ErrEndOfQueryResult = fmt.Errorf("there is no more values to retrieve from the query")
 

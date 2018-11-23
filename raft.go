@@ -2,33 +2,46 @@ package gotinydb
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"math"
 
 	"github.com/alexandrestein/gotinydb/transaction"
+	"github.com/dgraph-io/badger"
+	"github.com/hashicorp/raft"
 )
 
 type (
-	raftSore struct {
+	raftStore struct {
 		*DB
 	}
 )
 
-func (rs *raftSore) buildStoreKey(prefix byte, key []byte) []byte {
+func (d *DB) startRaft() error {
+	return nil
+}
+
+func (rs *raftStore) buildStoreKey(prefix byte, key []byte) []byte {
 	return append(
 		[]byte{prefixRaftStore, prefix},
 		key...,
 	)
 }
-func (rs *raftSore) buildStableStoreKey(key []byte) []byte {
+func (rs *raftStore) buildStableStoreKey(key []byte) []byte {
 	return rs.buildStoreKey(prefixRaftStableStore, key)
 }
-func (rs *raftSore) buildLogStoreKey(key []byte) []byte {
-	return rs.buildStoreKey(prefixRaftLogStore, key)
+func (rs *raftStore) buildLogStoreKey(index uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, index)
+
+	return rs.buildStoreKey(prefixRaftLogStore, b)
 }
-func (rs *raftSore) buildSnapshotStoreKey(key []byte) []byte {
+func (rs *raftStore) buildSnapshotStoreKey(key []byte) []byte {
 	return rs.buildStoreKey(prefixRaftSnapshotStore, key)
 }
 
-func (rs *raftSore) blockForWrite(tx *transaction.Transaction) (err error) {
+func (rs *raftStore) waitForWriteIsDone(tx *transaction.Transaction) (err error) {
 	// Run the insertion
 	select {
 	case rs.writeChan <- tx:
@@ -47,7 +60,7 @@ func (rs *raftSore) blockForWrite(tx *transaction.Transaction) (err error) {
 }
 
 // StableStore interface
-func (rs *raftSore) Set(key []byte, val []byte) error {
+func (rs *raftStore) Set(key []byte, val []byte) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -56,82 +69,193 @@ func (rs *raftSore) Set(key []byte, val []byte) error {
 		transaction.NewOperation("", nil, rs.buildStableStoreKey(key), val, false, true),
 	)
 
-	return rs.blockForWrite(tx)
+	return rs.waitForWriteIsDone(tx)
 }
 
-// // Get returns the value for key, or an empty byte slice if key was not found.
-// // StableStore interface
-// func (rs *raftSore) Get(key []byte) ([]byte, error) {
-// 	storeKey := rs.buildStableStoreKey(key)
+// Get returns the value for key, or an empty byte slice if key was not found.
+// StableStore interface
+func (rs *raftStore) Get(key []byte) ([]byte, error) {
+	storeKey := rs.buildStableStoreKey(key)
 
-// 	// rs.badger.View(func)
-// }
+	caller, err := rs.DB.Get(storeKey)
+	if err != nil {
+		return nil, err
+	}
 
-// // StableStore interface
-// func (rs *raftSore) SetUint64(key []byte, val uint64) error {
+	return caller.Bytes, caller.Error
+}
 
-// }
+// StableStore interface
+func (rs *raftStore) SetUint64(key []byte, val uint64) error {
+	bytesAsUint64 := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytesAsUint64, val)
 
-// // GetUint64 returns the uint64 value for key, or 0 if key was not found.
-// // StableStore interface
-// func (rs *raftSore) GetUint64(key []byte) (uint64, error) {
+	return rs.Set(key, bytesAsUint64)
+}
 
-// }
+// GetUint64 returns the uint64 value for key, or 0 if key was not found.
+// StableStore interface
+func (rs *raftStore) GetUint64(key []byte) (uint64, error) {
+	bytesAsUint64, err := rs.Get(key)
 
-// // FirstIndex returns the first index written. 0 for no entries.
-// // LogStore
-// func (rs *raftSore) FirstIndex() (uint64, error) {
+	return binary.BigEndian.Uint64(bytesAsUint64), err
+}
 
-// }
+func (rs *raftStore) firstOrLastLogIndex(first bool) (i uint64, _ error) {
+	baseI := uint64(0)
+	reverse := false
+	if !first {
+		baseI = math.MaxUint64
+		reverse = true
+	}
 
-// // LastIndex returns the last index written. 0 for no entries.
-// // LogStore
-// func (rs *raftSore) LastIndex() (uint64, error) {
+	prefix := rs.buildStoreKey(prefixRaftLogStore, nil)
+	firstOrLastPossibleID := rs.buildLogStoreKey(baseI)
 
-// }
+	return i, rs.badger.View(func(txn *badger.Txn) error {
+		itOptions := badger.DefaultIteratorOptions
+		itOptions.PrefetchValues = false
+		itOptions.AllVersions = false
+		itOptions.Reverse = reverse
 
-// // GetLog gets a log entry at a given index.
-// // LogStore
-// func (rs *raftSore) GetLog(index uint64, log *raft.Log) error {
+		it := txn.NewIterator(itOptions)
+		defer it.Close()
 
-// }
+		it.Seek(firstOrLastPossibleID)
+		if !it.ValidForPrefix(prefix) {
+			i = 0
+			return fmt.Errorf("looks like there is no existing log")
+		}
 
-// // StoreLog stores a log entry.
-// // LogStore
-// func (rs *raftSore) StoreLog(log *raft.Log) error {
+		item := it.Item()
+		i = binary.BigEndian.Uint64(item.Key()[len(prefix):])
 
-// }
+		return nil
+	})
+}
 
-// // StoreLogs stores multiple log entries.
-// // LogStore
-// func (rs *raftSore) StoreLogs(logs []*raft.Log) error {
+// FirstIndex returns the first index written. 0 for no entries.
+// LogStore interface
+func (rs *raftStore) FirstIndex() (i uint64, _ error) {
+	return rs.firstOrLastLogIndex(true)
+}
 
-// }
+// LastIndex returns the last index written. 0 for no entries.
+// LogStore interface
+func (rs *raftStore) LastIndex() (uint64, error) {
+	return rs.firstOrLastLogIndex(false)
+}
 
-// // DeleteRange deletes a range of log entries. The range is inclusive.
-// // LogStore
-// func (rs *raftSore) DeleteRange(min, max uint64) error {
+// GetLog gets a log entry at a given index.
+// LogStore interface
+func (rs *raftStore) GetLog(index uint64, log *raft.Log) error {
+	caller, err := rs.DB.Get(rs.buildLogStoreKey(index))
+	if err != nil {
+		return err
+	}
 
-// }
+	return json.Unmarshal(caller.Bytes, log)
+}
+
+// StoreLog stores a log entry.
+// LogStore interface
+func (rs *raftStore) StoreLog(log *raft.Log) error {
+	encoded, err := json.Marshal(log)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tx := transaction.New(ctx)
+	tx.AddOperation(
+		transaction.NewOperation("", nil, rs.buildLogStoreKey(log.Index), encoded, false, true),
+	)
+
+	return rs.waitForWriteIsDone(tx)
+}
+
+// StoreLogs stores multiple log entries.
+// LogStore interface
+func (rs *raftStore) StoreLogs(logs []*raft.Log) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tx := transaction.New(ctx)
+
+	for _, log := range logs {
+		encoded, err := json.Marshal(log)
+		if err != nil {
+			return err
+		}
+		tx.AddOperation(
+			transaction.NewOperation("", nil, rs.buildLogStoreKey(log.Index), encoded, false, true),
+		)
+	}
+
+	return rs.waitForWriteIsDone(tx)
+}
+
+// DeleteRange deletes a range of log entries. The range is inclusive.
+// LogStore interface
+func (rs *raftStore) DeleteRange(min, max uint64) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	prefix := rs.buildStoreKey(prefixRaftLogStore, nil)
+
+	tx := transaction.New(ctx)
+
+	err := rs.badger.View(func(txn *badger.Txn) error {
+		itOptions := badger.DefaultIteratorOptions
+		itOptions.PrefetchValues = false
+
+		it := txn.NewIterator(itOptions)
+		defer it.Close()
+
+		for it.Seek(rs.buildLogStoreKey(min)); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			i := binary.BigEndian.Uint64(item.Key()[len(prefix):])
+			if min <= i || i <= max {
+				var keyCopy []byte
+				keyCopy = item.KeyCopy(keyCopy)
+
+				tx.AddOperation(
+					transaction.NewOperation("", nil, keyCopy, nil, true, true),
+				)
+			} else if max < i {
+				break
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return rs.waitForWriteIsDone(tx)
+}
 
 // // Create is used to begin a snapshot at a given index and term, and with
 // // the given committed configuration. The version parameter controls
 // // which snapshot version to create.
-// // SnapshotStore INTERFACE
-// func (rs *raftSore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
+// // SnapshotStore interface
+// func (rs *raftStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
 
 // }
 
 // // List is used to list the available snapshots in the store.
 // // It should return then in descending order, with the highest index first.
-// // SnapshotStore INTERFACE
-// func (rs *raftSore) List() ([]*raft.SnapshotMeta, error) {
+// // SnapshotStore interface
+// func (rs *raftStore) List() ([]*raft.SnapshotMeta, error) {
 
 // }
 
 // // Open takes a snapshot ID and provides a ReadCloser. Once close is
 // // called it is assumed the snapshot is no longer needed.
-// // SnapshotStore INTERFACE
-// func (rs *raftSore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
+// // SnapshotStore interface
+// func (rs *raftStore) Open(id string) (*raft.SnapshotMeta, io.ReadCloser, error) {
 
 // }

@@ -409,21 +409,29 @@ func TestDeleteParts(t *testing.T) {
 func TestChainOpen(t *testing.T) {
 	db, err := Open("db", testConfigKey)
 	if err != nil {
-		t.Fatal(err)
+		testChainOpenFatal(t, db, err)
 	}
 	defer db.Close()
 
 	var userCollection *Collection
 	userCollection, err = db.Use("users")
 	if err != nil {
-		t.Fatal(err)
+		testChainOpenFatal(t, db, err)
 	}
 
 	err = userCollection.SetBleveIndex("all", bleve.NewIndexMapping())
 	if err != nil {
-		t.Fatal(err)
+		testChainOpenFatal(t, db, err)
 	}
 }
+func testChainOpenFatal(t *testing.T, db *DB, err error) {
+	defer func() {
+		db.Close()
+		os.RemoveAll("db")
+	}()
+	t.Fatal(err)
+}
+
 func TestChainReOpen(t *testing.T) {
 	defer os.RemoveAll("db")
 	db, err := Open("db", testConfigKey)

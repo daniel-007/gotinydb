@@ -447,7 +447,7 @@ func (r *readWriter) getExistingBlock(blockN int) ([]byte, error) {
 		return nil, err
 	}
 
-	return caller.asBytes, nil
+	return caller.Bytes, nil
 }
 
 func (r *readWriter) Write(p []byte) (n int, err error) {

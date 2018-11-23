@@ -110,7 +110,7 @@ func Example() {
 	// Save the bleve indexexes
 	err = c.SetBleveIndex("email", indexMapping)
 	if err != nil {
-		if err != gotinydb.ErrNameAllreadyExists {
+		if err != gotinydb.ErrNameAlreadyExists {
 			log.Fatal(err)
 		}
 	}

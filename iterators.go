@@ -54,15 +54,15 @@ func (i *baseIterator) Close() {
 
 func (i *CollectionIterator) get(dest interface{}) []byte {
 	caller := new(GetCaller)
-	caller.id = i.GetID()
-	caller.dbID = i.getDBKey()
-	caller.pointer = dest
+	caller.ID = i.GetID()
+	caller.DbID = i.getDBKey()
+	caller.Dest = dest
 
 	caller.encryptedAsBytes, _ = i.item.ValueCopy(caller.encryptedAsBytes)
 
 	i.c.db.decryptAndUnmarshal(caller)
 
-	return caller.asBytes
+	return caller.Bytes
 }
 
 // GetBytes returns the document as a slice of bytes
