@@ -6,11 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alexandrestein/gotinydb/replication/common"
-
 	"github.com/alexandrestein/gotinydb"
-
 	"github.com/alexandrestein/gotinydb/replication"
+	"github.com/alexandrestein/gotinydb/replication/common"
 	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
 
@@ -37,7 +35,16 @@ func TestNode(t *testing.T) {
 
 	var db *gotinydb.DB
 	db, err = gotinydb.Open(dbPath, [32]byte{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	rs := db.GetRaftStore()
+
+	// defer os.RemoveAll("ici")
+	// rs, err := boltdb.NewBoltStore("ici")
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
 	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node")
 
@@ -47,4 +54,6 @@ func TestNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println("n", n)
+
+	time.Sleep(time.Second * 5)
 }

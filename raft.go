@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
 
 	"github.com/alexandrestein/gotinydb/replication"
@@ -139,7 +138,7 @@ func (rs *raftStore) firstOrLastLogIndex(first bool) (i uint64, _ error) {
 		it.Seek(firstOrLastPossibleID)
 		if !it.ValidForPrefix(prefix) {
 			i = 0
-			return fmt.Errorf("looks like there is no existing log")
+			return nil
 		}
 
 		item := it.Item()

@@ -41,7 +41,6 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 	tr := raft.NewNetworkTransport(n.raftTransport, 10, time.Second*2, nil)
 
 	if bootstrap {
-		fmt.Println("bootstrap")
 		servers := raft.Configuration{
 			Servers: []raft.Server{
 				raft.Server{
@@ -53,7 +52,6 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 		}
 		err = raft.BootstrapCluster(raftConfig, raftStore, raftStore, n.raftFileSnapshotStore, tr, servers)
 		if err != nil {
-			fmt.Println("bootstrap err", err)
 			return err
 		}
 

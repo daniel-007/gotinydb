@@ -38,10 +38,10 @@ type (
 	}
 )
 
-func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.Certificate, bootstrap bool) (*Node, error) {
+func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.Certificate, bootstrap bool) (_ *Node, err error) {
 	n := new(Node)
 
-	err := os.MkdirAll(path, 1740)
+	err = os.MkdirAll(path, 1740)
 	if err != nil {
 		return nil, err
 	}
