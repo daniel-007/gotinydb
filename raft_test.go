@@ -144,13 +144,13 @@ func testLogStore(t *testing.T, rs *raftStore) {
 func testLogStoreFirstAndLastOnEmpty(t *testing.T, rs *raftStore) {
 	if i, err := rs.FirstIndex(); i != 0 {
 		t.Fatalf("the expected index is 0 but had: %d", i)
-	} else if err == nil {
-		t.Fatalf("it should return an error but not")
+	} else if err != nil {
+		t.Fatalf("it should return no error but did")
 	}
 	if i, err := rs.LastIndex(); i != 0 {
 		t.Fatalf("the expected index is 0 but had: %d", i)
-	} else if err == nil {
-		t.Fatalf("it should return an error but not")
+	} else if err != nil {
+		t.Fatalf("it should return no error but did")
 	}
 }
 

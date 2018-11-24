@@ -1,7 +1,6 @@
 package replication
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -43,13 +42,12 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 	if bootstrap {
 		servers := raft.Configuration{
 			Servers: []raft.Server{
-				raft.Server{
-					Suffrage: raft.Voter,
-					ID:       raft.ServerID(n.GetID().String()),
-					Address:  raft.ServerAddress(n.Addr.String()),
-				},
+				n.raftConfig,
 			},
 		}
+
+		raftConfig.StartAsLeader = true
+
 		err = raft.BootstrapCluster(raftConfig, raftStore, raftStore, n.raftFileSnapshotStore, tr, servers)
 		if err != nil {
 			return err
@@ -57,8 +55,10 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 
 	}
 
-	fmt.Println("after bootstrap")
-	// n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, nil, nil)
 	n.Raft, err = raft.NewRaft(raftConfig, nil, raftStore, raftStore, n.raftFileSnapshotStore, tr)
+	if err != nil {
+		return err
+	}
+
 	return err
 }

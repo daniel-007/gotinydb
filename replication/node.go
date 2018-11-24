@@ -24,6 +24,7 @@ type (
 		raftChan              chan<- bool
 		raftTransport         *Transport
 		raftFileSnapshotStore *raft.FileSnapshotStore
+		raftConfig            raft.Server
 
 		Path string
 
@@ -46,13 +47,18 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 		return nil, err
 	}
 
+	n.Addr = addr
+	n.Certificate = cert
+
 	n.raftFileSnapshotStore, err = raft.NewFileSnapshotStore(path, 10, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	n.Addr = addr
-	n.Certificate = cert
+	n.raftConfig = raft.Server{
+		Suffrage: raft.Voter,
+		ID:       raft.ServerID(n.GetID().String()),
+		Address:  raft.ServerAddress(n.Addr.String()),
+	}
 
 	err = n.startHTTP()
 	if err != nil {
