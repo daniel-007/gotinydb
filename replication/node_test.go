@@ -30,8 +30,6 @@ func TestNode(t *testing.T) {
 	}
 
 	fmt.Println("addrs", addrs.String())
-	fmt.Println("addrs", addrs.SwitchMain(2))
-	fmt.Println("addrs", addrs.Addrs)
 
 	var db *gotinydb.DB
 	db, err = gotinydb.Open(dbPath, [32]byte{})
@@ -39,12 +37,6 @@ func TestNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := db.GetRaftStore()
-
-	// defer os.RemoveAll("ici")
-	// rs, err := boltdb.NewBoltStore("ici")
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 
 	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node")
 
