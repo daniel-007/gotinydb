@@ -1,9 +1,12 @@
 package replication
 
 import (
+	"crypto/tls"
 	"fmt"
+	"log"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -28,13 +31,6 @@ type (
 
 		Addr net.Addr
 	}
-
-	Transport struct {
-		acceptChan chan net.Conn
-		addr       net.Addr
-
-		cert *securelink.Certificate
-	}
 )
 
 func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.Certificate, bootstrap bool) (_ *Node, err error) {
@@ -45,6 +41,7 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 		return nil, err
 	}
 
+	// n.waitingNodes = []raft.Server{}
 	n.Addr = addr
 	n.Certificate = cert
 
@@ -58,12 +55,12 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 		Address:  raft.ServerAddress(n.Addr.String()),
 	}
 
-	err = n.startHTTP()
+	n.buildRaftTransport()
+
+	err = n.startServer()
 	if err != nil {
 		return nil, err
 	}
-
-	n.buildRaftTransport()
 
 	err = n.startRaft(raftStore, bootstrap)
 	if err != nil {
@@ -73,10 +70,41 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 	return n, nil
 }
 
-func (n *Node) startHTTP() error {
+func (n *Node) startServer() error {
+	tlsConfig := securelink.GetBaseTLSConfig(n.GetID().String(), n.Certificate)
+
+	tlsListener, err := tls.Listen("tcp", fmt.Sprintf(":%s", n.GetPort()), tlsConfig)
+	if err != nil {
+		return err
+	}
+
+	cl := securelink.NewListener(tlsListener)
+	cl.RegisterService("raft", func(serverName string) bool {
+		if CheckRaftHostRequestReg.MatchString(serverName) {
+			return true
+		}
+
+		return false
+	}, n.raftTransport)
+
 	n.Echo = echo.New()
+	n.Echo.Server = &http.Server{
+		TLSConfig: tlsConfig,
+	}
+	n.Echo.TLSListener = cl
 
 	n.settupHandlers()
+
+	httpServer := &http.Server{
+		TLSConfig: tlsConfig,
+		Handler:   nil,
+	}
+
+	go func() {
+		err := n.Echo.StartServer(httpServer)
+		fmt.Println("merde avec le sever", err)
+		log.Fatal(err)
+	}()
 
 	return nil
 }
@@ -94,90 +122,76 @@ func (n *Node) GetID() *big.Int {
 }
 
 func (n *Node) buildRaftTransport() {
-	ch := make(chan net.Conn)
 	n.raftTransport = &Transport{
-		acceptChan: ch,
-		addr:       n.Addr,
-		cert:       n.Certificate,
+		acceptChan:    make(chan *transportConn),
+		addr:          n.Addr,
+		cert:          n.Certificate,
+		getIDFromAddr: n.getIDFromAddr,
 	}
+}
+
+func (n *Node) getIDFromAddr(addr raft.ServerAddress) (serverID raft.ServerID) {
+	for i, server := range n.Raft.GetConfiguration().Configuration().Servers {
+		fmt.Println("server i", i, server)
+		if server.Address == addr {
+			return server.ID
+		}
+	}
+
+	return n.getIDFromAddrByConnecting(addr)
+}
+
+func (n *Node) getIDFromAddrByConnecting(addr raft.ServerAddress) (serverID raft.ServerID) {
+	tlsConfig := securelink.GetBaseTLSConfig("", n.Certificate)
+	tlsConfig.InsecureSkipVerify = true
+	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
+	if err != nil {
+		fmt.Println("err -1", err)
+		return ""
+	}
+
+	err = conn.Handshake()
+	if err != nil {
+		fmt.Println("err 0", err)
+		return ""
+	}
+
+	remoteCert := conn.ConnectionState().PeerCertificates[0]
+	err = remoteCert.CheckSignatureFrom(n.Certificate.CACert)
+	if err != nil {
+		fmt.Println("err 1", err)
+		return ""
+	}
+
+	return raft.ServerID(remoteCert.SerialNumber.String())
 }
 
 func (n *Node) GetRaftTransport() *Transport {
 	return n.raftTransport
 }
 
-func (t *Transport) Accept() (net.Conn, error) {
-	err := fmt.Errorf("connection looks closed")
-
-	if t.acceptChan == nil {
-		return nil, err
-	}
-
-	conn, ok := <-t.acceptChan
-	if !ok {
-		return nil, err
-	}
-	return conn, nil
+func (n *Node) AddVoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {
+	// lastIndex := n.Raft.LastIndex()
+	// return n.Raft.AddVoter(serverID, serverAddress, lastIndex, time.Second*5)
+	return n.Raft.AddVoter(serverID, serverAddress, 0, time.Second*5)
 }
 
-func (t *Transport) Close() error {
-	if t.acceptChan != nil {
-		close(t.acceptChan)
-		t.acceptChan = nil
+// GetPort return a string representation of the port from the address.
+// It has the form of "3169".
+func (n *Node) GetPort() string {
+	_, port := n.getHostAndPort()
+	return port
+}
+
+func (n *Node) GetHost() string {
+	host, _ := n.getHostAndPort()
+	return host
+}
+
+func (n *Node) getHostAndPort() (string, string) {
+	host, port, err := net.SplitHostPort(n.Addr.String())
+	if err != nil {
+		return "", ""
 	}
-	return nil
-}
-
-func (t *Transport) Addr() net.Addr {
-	return t.addr
-}
-
-func (t *Transport) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
-	fmt.Println("sss", string(addr))
-
-	// tlsConfig := securelink.GetBaseTLSConfig(string(addr), t.cert)
-
-	// tls.Dial("tcp")
-
-	return nil, fmt.Errorf("merde lkn")
-
-	// location := &url.URL{
-	// 	Scheme: "https",
-	// 	Host:   string(addr),
-	// 	Path:   fmt.Sprintf("/%s/%s", APIVersion, GetRaftStreamerPATH),
-	// }
-	// origin := &url.URL{
-	// 	Scheme: "https",
-	// 	Host:   string(addr),
-	// 	Path:   "/",
-	// }
-
-	// wsConfig := &websocket.Config{
-	// 	// A WebSocket server address.
-	// 	Location: location,
-
-	// 	// A Websocket client origin.
-	// 	Origin: origin,
-
-	// 	// WebSocket subprotocols.
-	// 	Protocol: []string{""},
-
-	// 	//  // WebSocket protocol version.
-	// 	//  Version int
-
-	// 	// TLS config for secure WebSocket (wss).
-	// 	TlsConfig: tlsConfig,
-
-	// 	//  // Additional header fields to be sent in WebSocket opening handshake.
-	// 	//  Header http.Header
-
-	// 	//  // Dialer used when opening websocket connections.
-	// 	//  Dialer *net.Dialer
-	// }
-
-	// ws, err := websocket.DialConfig(wsConfig)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return ws, nil
+	return host, port
 }

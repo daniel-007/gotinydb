@@ -53,7 +53,7 @@ func GetCertTemplate(names []string, ips []net.IP) *x509.Certificate {
 	if len(names) == 0 || names == nil {
 		names = []string{}
 	}
-	names = append(names, serial.String())
+	names = append(names, serial.String(), "*."+serial.String())
 
 	return &x509.Certificate{
 		SignatureAlgorithm: x509.UnknownSignatureAlgorithm,

@@ -1,9 +1,19 @@
 package replication
 
-import "github.com/alexandrestein/gotinydb/replication/securelink"
+import (
+	"regexp"
+
+	"github.com/alexandrestein/gotinydb/replication/securelink"
+)
 
 // Those variables defines the default certificates key algorithm and key size
 var (
-	DefaultCertKeyAlgorithm securelink.KeyType   = securelink.KeyTypeEc
-	DefaultCertKeyLength    securelink.KeyLength = securelink.KeyLengthEc384
+	DefaultCertKeyAlgorithm = securelink.KeyTypeEc
+	DefaultCertKeyLength    = securelink.KeyLengthEc384
+)
+
+var (
+	// CheckRaftHostRequestReg is used to check if the client is looking for the raft
+	// service inside the TLS service
+	CheckRaftHostRequestReg = regexp.MustCompile("^raft\\.")
 )

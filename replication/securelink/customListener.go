@@ -41,6 +41,15 @@ func NewListener(tlsListener net.Listener) *Listener {
 
 // Accept implements the net.Listener interface
 func (l *Listener) Accept() (net.Conn, error) {
+	fnErr := func(conn net.Conn, err error) (net.Conn, error) {
+		fmt.Println("print error from (l *Listener) Accept()", err, conn)
+		if conn != nil {
+			conn.Close()
+			return conn, nil
+		}
+		return conn, nil
+	}
+
 	conn, err := l.tlsListener.Accept()
 	if err != nil {
 		return nil, err
@@ -48,26 +57,26 @@ func (l *Listener) Accept() (net.Conn, error) {
 
 	tlsConn, ok := conn.(*tls.Conn)
 	if !ok {
-		return nil, fmt.Errorf("the connection is not TLS")
+		return fnErr(conn, fmt.Errorf("the connection is not TLS"))
 	}
 
 	err = tlsConn.Handshake()
 	if err != nil {
-		return nil, err
+		return fnErr(conn, err)
 	}
 
 	for _, service := range l.services {
 		if service.matchFunction(tlsConn.ConnectionState().ServerName) {
 			err := service.handler.Handle(tlsConn)
 			if err != nil {
-				return nil, err
+				return fnErr(conn, err)
 			}
 
-			return tlsConn, tlsConn.Close()
+			return tlsConn, nil
 		}
 	}
 
-	return conn, err
+	return tlsConn, nil
 }
 
 // Close implements the net.Listener interface

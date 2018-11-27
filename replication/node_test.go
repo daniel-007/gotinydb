@@ -1,7 +1,6 @@
 package replication_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -66,9 +65,9 @@ func TestThreeNodes(t *testing.T) {
 	db3, _ := gotinydb.Open(dbPath3, [32]byte{})
 	rs3 := db3.GetRaftStore()
 
-	cert1, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node1")
-	cert2, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node2")
-	cert3, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil), "node3")
+	cert1, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
+	cert2, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
+	cert3, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
 
 	node1, err := replication.NewNode(addrs1, rs1, dbPath1+"/raftStore", cert1, true)
 	if err != nil {
@@ -81,16 +80,21 @@ func TestThreeNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f := node1.Raft.AddVoter(raft.ServerID(node2.GetID().String()), raft.ServerAddress(node2.Addr.String()), 0, time.Second*2)
-	fmt.Println(".dd", f.Index(), f.Error())
+	f := node1.AddVoter(raft.ServerID(node2.GetID().String()), raft.ServerAddress(node2.Addr.String()))
+	if err := f.Error(); err != nil {
+		t.Fatal(err)
+	}
 
 	node3, err = replication.NewNode(addrs3, rs3, dbPath3+"/raftStore", cert3, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	f = node1.Raft.AddVoter(raft.ServerID(node3.GetID().String()), raft.ServerAddress(node3.Addr.String()), 0, time.Second*2)
-	fmt.Println(".dd", f.Index(), f.Error())
+	node3.GetID().String()
+	// f = node1.AddVoter(raft.ServerID(node3.GetID().String()), raft.ServerAddress(node3.Addr.String()))
+	// if err := f.Error(); err != nil {
+	// 	t.Fatal(err)
+	// }
 
 	time.Sleep(time.Second * 5)
 }
