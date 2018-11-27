@@ -1,15 +1,19 @@
 package securelink_test
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"fmt"
 	"html"
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
@@ -25,7 +29,7 @@ type (
 )
 
 func (h *handler) Handle(conn net.Conn) error {
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 1000*10)
 	n, err := conn.Read(buffer)
 	if err != nil {
 		return err
@@ -59,6 +63,9 @@ func TestConnector(t *testing.T) {
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		testWildcardCertAndDifferentHandler(t, ca)
+	})
+	t.Run("concurrent", func(t *testing.T) {
+		testConcurantDirectAccess(t, ca)
 	})
 }
 
@@ -192,4 +199,77 @@ func testWildcardCertAndDifferentHandler(t *testing.T, ca *securelink.Certificat
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func testConcurantDirectAccess(t *testing.T, ca *securelink.Certificate) {
+	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256,
+		time.Hour,
+		securelink.GetCertTemplate(nil, nil),
+		"*.node",
+	)
+	cliCert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256,
+		time.Hour,
+		securelink.GetCertTemplate(nil, nil),
+		"cli",
+	)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go runSever(t, cert, &wg)
+	wg.Wait()
+
+	randBuffers := make([][]byte, 20)
+	for i, buffer := range randBuffers {
+		buffer = make([]byte, 1000)
+		n, err := rand.Read(buffer)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		buffer = buffer[:n]
+		randBuffers[i] = buffer
+	}
+
+	nTest := 500
+	for index := 0; index < nTest; index++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			// Access directly to the TLS stream with the hander for the sub domain test.node
+			conn, err := tls.Dial("tcp", "127.0.0.1:6246", securelink.GetBaseTLSConfig("test.node", cliCert))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			writeBuff := make([]byte, 1000)
+			copy(writeBuff, randBuffers[index%10])
+
+			var n int
+			n, err = conn.Write(writeBuff)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			buff := make([]byte, n)
+			var n2 int
+			n2, err = conn.Read(buff)
+			if err != nil && err != io.EOF {
+				t.Fatal(err)
+			}
+			err = conn.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if n != n2 {
+				t.Fatalf("the write and read length are different: %d %d", n, n2)
+			}
+
+			if s1, s2 := blake2b.Sum256(writeBuff), blake2b.Sum256(buff); !reflect.DeepEqual(s1, s2) {
+				t.Fatalf("the write and read are different: %x %x", s1, s2)
+			}
+		}(index)
+	}
+
+	wg.Wait()
 }

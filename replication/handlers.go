@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/net/websocket"
-
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 
@@ -24,7 +22,6 @@ var (
 	APIVersion = "v0.0.0"
 
 	PostCertificatePATH = "new-client"
-	GetRaftStreamerPATH = "raft-streamer"
 
 	ServerIDHeadearName = "Server-Id"
 )
@@ -40,8 +37,7 @@ func (n *Node) settupHandlers() {
 	)
 
 	apiGroup.POST(PostCertificatePATH, h.returnCert)
-	apiGroup.GET(GetRaftStreamerPATH, h.raftStream)
-
+	// apiGroup.GET(GetRaftStreamerPATH, h.raftStream)
 }
 
 func (h *handler) returnCert(c echo.Context) error {
@@ -69,12 +65,12 @@ func (h *handler) returnCert(c echo.Context) error {
 	return c.JSONBlob(http.StatusOK, clientCertAsBytes)
 }
 
-func (h *handler) raftStream(c echo.Context) error {
-	websocket.Handler(func(ws *websocket.Conn) {
-		h.raftTransport.acceptChan <- ws
-	}).ServeHTTP(c.Response(), c.Request())
-	return nil
-}
+// func (h *handler) raftStream(c echo.Context) error {
+// 	websocket.Handler(func(ws *websocket.Conn) {
+// 		h.raftTransport.acceptChan <- ws
+// 	}).ServeHTTP(c.Response(), c.Request())
+// 	return nil
+// }
 
 // func (h *handler) serverConnectivity(c echo.Context) error {
 // 	addrs, err := common.GetAddresses()

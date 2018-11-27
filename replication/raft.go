@@ -46,7 +46,14 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 			},
 		}
 
+		// if hosts == nil || len(hosts) <= 0 {
 		raftConfig.StartAsLeader = true
+		// } else {
+		// 	servers.Servers = hosts
+		// }
+
+		// fmt.Println("init raft", servers.Servers)
+		// fmt.Println("hosts", hosts)
 
 		err = raft.BootstrapCluster(raftConfig, raftStore, raftStore, n.raftFileSnapshotStore, tr, servers)
 		if err != nil {

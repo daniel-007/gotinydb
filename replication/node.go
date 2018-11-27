@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/hashicorp/raft"
 	"github.com/labstack/echo"
-	"golang.org/x/net/websocket"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
@@ -71,7 +69,8 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+
+	return n, nil
 }
 
 func (n *Node) startHTTP() error {
@@ -134,46 +133,51 @@ func (t *Transport) Addr() net.Addr {
 }
 
 func (t *Transport) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
+	fmt.Println("sss", string(addr))
 
-	location := &url.URL{
-		Scheme: "https",
-		Host:   string(addr),
-		Path:   fmt.Sprintf("/%s/%s", APIVersion, GetRaftStreamerPATH),
-	}
-	origin := &url.URL{
-		Scheme: "https",
-		Host:   string(addr),
-		Path:   "/",
-	}
+	// tlsConfig := securelink.GetBaseTLSConfig(string(addr), t.cert)
 
-	tlsConfig := securelink.GetBaseTLSConfig(string(addr), t.cert)
+	// tls.Dial("tcp")
 
-	wsConfig := &websocket.Config{
-		// A WebSocket server address.
-		Location: location,
+	return nil, fmt.Errorf("merde lkn")
 
-		// A Websocket client origin.
-		Origin: origin,
+	// location := &url.URL{
+	// 	Scheme: "https",
+	// 	Host:   string(addr),
+	// 	Path:   fmt.Sprintf("/%s/%s", APIVersion, GetRaftStreamerPATH),
+	// }
+	// origin := &url.URL{
+	// 	Scheme: "https",
+	// 	Host:   string(addr),
+	// 	Path:   "/",
+	// }
 
-		// WebSocket subprotocols.
-		Protocol: []string{""},
+	// wsConfig := &websocket.Config{
+	// 	// A WebSocket server address.
+	// 	Location: location,
 
-		//  // WebSocket protocol version.
-		//  Version int
+	// 	// A Websocket client origin.
+	// 	Origin: origin,
 
-		// TLS config for secure WebSocket (wss).
-		TlsConfig: tlsConfig,
+	// 	// WebSocket subprotocols.
+	// 	Protocol: []string{""},
 
-		//  // Additional header fields to be sent in WebSocket opening handshake.
-		//  Header http.Header
+	// 	//  // WebSocket protocol version.
+	// 	//  Version int
 
-		//  // Dialer used when opening websocket connections.
-		//  Dialer *net.Dialer
-	}
+	// 	// TLS config for secure WebSocket (wss).
+	// 	TlsConfig: tlsConfig,
 
-	ws, err := websocket.DialConfig(wsConfig)
-	if err != nil {
-		return nil, err
-	}
-	return ws, nil
+	// 	//  // Additional header fields to be sent in WebSocket opening handshake.
+	// 	//  Header http.Header
+
+	// 	//  // Dialer used when opening websocket connections.
+	// 	//  Dialer *net.Dialer
+	// }
+
+	// ws, err := websocket.DialConfig(wsConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return ws, nil
 }
