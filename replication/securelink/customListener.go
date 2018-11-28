@@ -42,7 +42,7 @@ func NewListener(tlsListener net.Listener) *Listener {
 // Accept implements the net.Listener interface
 func (l *Listener) Accept() (net.Conn, error) {
 	fnErr := func(conn net.Conn, err error) (net.Conn, error) {
-		fmt.Println("print error from (l *Listener) Accept()", err, conn)
+		fmt.Println("print error from (l *Listener) Accept()", err)
 		if conn != nil {
 			conn.Close()
 			return conn, nil
@@ -67,9 +67,9 @@ func (l *Listener) Accept() (net.Conn, error) {
 
 	for _, service := range l.services {
 		if service.matchFunction(tlsConn.ConnectionState().ServerName) {
-			err := service.handler.Handle(tlsConn)
+			err = service.handler.Handle(tlsConn)
 			if err != nil {
-				return fnErr(conn, err)
+				return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
 			}
 
 			return tlsConn, nil

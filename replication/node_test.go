@@ -1,6 +1,7 @@
 package replication_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -79,6 +80,9 @@ func TestThreeNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// node2.Raft.BootstrapCluster(
+	// 	replication.GetRaftConfig(node2.GetID().String(), node2.RaftChan),
+	// )
 
 	f := node1.AddVoter(raft.ServerID(node2.GetID().String()), raft.ServerAddress(node2.Addr.String()))
 	if err := f.Error(); err != nil {
@@ -96,5 +100,9 @@ func TestThreeNodes(t *testing.T) {
 	// 	t.Fatal(err)
 	// }
 
-	time.Sleep(time.Second * 5)
+	fmt.Println("node2 conf", node2.Raft.GetConfiguration().Configuration().Servers)
+
+	time.Sleep(time.Second * 25)
+
+	fmt.Println("node2 conf", node2.Raft.GetConfiguration().Configuration().Servers)
 }

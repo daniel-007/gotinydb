@@ -14,23 +14,27 @@ type (
 	}
 )
 
-func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
-	n.raftChan = make(chan<- bool, 10)
-	raftConfig := &raft.Config{
+func GetRaftConfig(id string, notifyChan chan bool) *raft.Config {
+	return &raft.Config{
 		ProtocolVersion:    raft.ProtocolVersionMax,
 		HeartbeatTimeout:   time.Second * 10,
 		ElectionTimeout:    time.Second * 10,
-		CommitTimeout:      time.Second * 2,
+		CommitTimeout:      time.Second * 5,
 		MaxAppendEntries:   500,
 		ShutdownOnRemove:   true,
 		TrailingLogs:       1000,
-		SnapshotInterval:   time.Minute,
+		SnapshotInterval:   time.Second * 20,
 		SnapshotThreshold:  100,
-		LeaderLeaseTimeout: time.Second * 10,
+		LeaderLeaseTimeout: time.Second * 5,
 		StartAsLeader:      false,
-		LocalID:            raft.ServerID(n.GetID().String()),
-		NotifyCh:           n.raftChan,
+		LocalID:            raft.ServerID(id),
+		NotifyCh:           notifyChan,
 	}
+}
+
+func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
+	n.RaftChan = make(chan bool, 10)
+	raftConfig := GetRaftConfig(n.GetID().String(), n.RaftChan)
 
 	err = raft.ValidateConfig(raftConfig)
 	if err != nil {

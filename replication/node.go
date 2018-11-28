@@ -22,7 +22,7 @@ type (
 		Certificate *securelink.Certificate
 
 		Raft                  *raft.Raft
-		raftChan              chan<- bool
+		RaftChan              chan bool
 		raftTransport         *Transport
 		raftFileSnapshotStore *raft.FileSnapshotStore
 		raftConfig            raft.Server
@@ -173,7 +173,13 @@ func (n *Node) GetRaftTransport() *Transport {
 func (n *Node) AddVoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {
 	// lastIndex := n.Raft.LastIndex()
 	// return n.Raft.AddVoter(serverID, serverAddress, lastIndex, time.Second*5)
-	return n.Raft.AddVoter(serverID, serverAddress, 0, time.Second*5)
+	return n.Raft.AddVoter(serverID, serverAddress, 0, time.Second*2)
+}
+
+func (n *Node) AddNonvoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {
+	// lastIndex := n.Raft.LastIndex()
+	// return n.Raft.AddVoter(serverID, serverAddress, lastIndex, time.Second*5)
+	return n.Raft.AddNonvoter(serverID, serverAddress, 0, time.Second*2)
 }
 
 // GetPort return a string representation of the port from the address.
