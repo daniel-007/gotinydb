@@ -5,8 +5,9 @@ import (
 	"net/http"
 )
 
-// NewConnector provides a HTTP client with custom root CA
-func NewConnector(host string, cert *Certificate) *http.Client {
+// NewHTTPSConnector provides a HTTP/S client with custom root CA and with the
+// given client certificate
+func NewHTTPSConnector(host string, cert *Certificate) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: GetBaseTLSConfig(host, cert),

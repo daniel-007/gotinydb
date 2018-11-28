@@ -1,26 +1,26 @@
 package securelink
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/hashicorp/raft"
 )
 
 type (
-	Transport struct {
-		AcceptChan chan *transportConn
-		addr       net.Addr
+	// Handler provides a way to use multiple handlers inside a sign TLS listener.
+	// You specify the TLS certificate for server but the same certificate is used in case
+	// of Dial.
+	Handler struct {
+		// addr net.Addr
+		name string
 
-		Certificate    *Certificate
-		HandleFunction func(conn net.Conn) (err error)
+		// Certificate    *Certificate
+		handleFunction HandlerFunction
 
-		getIDFromAddr func(addr raft.ServerAddress) (serverID raft.ServerID)
+		matchFunction ServiceMatch
 
-		listener net.Listener
+		// listener net.Listener
 	}
 
 	transportConn struct {
@@ -31,155 +31,63 @@ type (
 	}
 )
 
-func NewTransport(listener net.Listener, certificate *Certificate, getRemoteIDFromAddressFunc func(raft.ServerAddress) (serverID raft.ServerID)) *Transport {
-	return &Transport{
-		AcceptChan:    make(chan *transportConn),
-		Certificate:   certificate,
-		getIDFromAddr: getRemoteIDFromAddressFunc,
-		listener:      listener,
+func NewHandler(name string, serviceMatchFunc ServiceMatch, handlerFunction HandlerFunction) *Handler {
+	// func NewServiceHandler(listener net.Listener, certificate *Certificate, getRemoteIDFromAddressFunc func(raft.ServerAddress) (serverID raft.ServerID)) *ServiceHandler {
+	return &Handler{
+		name:           name,
+		handleFunction: handlerFunction,
+		matchFunction:  serviceMatchFunc,
 	}
 }
 
-func (t *Transport) Handle(conn net.Conn) (err error) {
-	if t.HandleFunction == nil {
+func (t *Handler) Handle(conn net.Conn) (err error) {
+	if t.handleFunction == nil {
 		return fmt.Errorf("no handler registered")
 	}
 
 	tc := newTransportConn(conn)
 
-	return t.HandleFunction(tc)
-	// fmt.Println("handle")
-
-	// err = fmt.Errorf("channel looks close from sender")
-
-	// if t.AcceptChan == nil {
-	// 	return err
-	// }
-
-	// tc := newTransportConn(conn)
-
-	// t.AcceptChan <- tc
-
-	// // fmt.Println("handler wait for close")
-
-	// tc.wg.Wait()
-
-	// // fmt.Println("handler connection closed")
-
-	// return tc.Error
+	return t.handleFunction(tc)
 }
 
-func (t *Transport) accept(conn net.Conn) (net.Conn, error) {
-	tc, ok := <-t.AcceptChan
-	if !ok {
-		return nil, fmt.Errorf("channel looks closed from receiver")
-	}
+// func (t *ServiceHandler) Accept() (net.Conn, error) {
+// 	conn, err := t.listener.Accept()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return tc, tc.Error
-}
+// 	tc := newTransportConn(conn)
 
-func (t *Transport) Accept() (net.Conn, error) {
-	conn, err := t.listener.Accept()
-	if err != nil {
-		return nil, err
-	}
+// 	return tc, tc.Error
+// }
 
-	tc := newTransportConn(conn)
+// func (t *ServiceHandler) Addr() net.Addr {
+// 	return t.listener.Addr()
+// }
 
-	// tc, ok := <-t.AcceptChan
-	// if !ok {
-	// 	return nil, fmt.Errorf("channel looks closed from receiver")
-	// }
+// func (t *ServiceHandler) Close() error {
+// 	return t.listener.Close()
+// }
 
-	return tc, tc.Error
-}
+// func (t *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
+// 	hostName := t.getCertHostNameFromAddr(addr)
 
-func (t *Transport) Addr() net.Addr {
-	return t.listener.Addr()
-}
+// 	tlsConfig := GetBaseTLSConfig(string(hostName), t.Certificate)
 
-func (t *Transport) Close() error {
-	if t.AcceptChan != nil {
-		close(t.AcceptChan)
-		t.AcceptChan = nil
-	}
+// 	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return t.listener.Close()
-}
+// 	err = conn.SetDeadline(time.Now().Add(timeout))
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-func (t *Transport) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
-	hostName := t.getIDFromAddr(addr)
+// 	tc := newTransportConn(conn)
 
-	// host, _, err := net.SplitHostPort(string(addr))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// t.
-
-	// hostWithPort := fmt.Sprintf("%s:%s", host, port)
-	tlsConfig := GetBaseTLSConfig(string(hostName), t.Certificate)
-
-	// var conn *tls.Conn
-	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	err = conn.SetDeadline(time.Now().Add(timeout))
-	if err != nil {
-		return nil, err
-	}
-
-	// err = conn.Handshake()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	tc := newTransportConn(conn)
-
-	return tc, err
-
-	// location := &url.URL{
-	// 	Scheme: "https",
-	// 	Host:   string(addr),
-	// 	Path:   fmt.Sprintf("/%s/%s", APIVersion, GetRaftStreamerPATH),
-	// }
-	// origin := &url.URL{
-	// 	Scheme: "https",
-	// 	Host:   string(addr),
-	// 	Path:   "/",
-	// }
-
-	// wsConfig := &websocket.Config{
-	// 	// A WebSocket server address.
-	// 	Location: location,
-
-	// 	// A Websocket client origin.
-	// 	Origin: origin,
-
-	// 	// WebSocket subprotocols.
-	// 	Protocol: []string{""},
-
-	// 	//  // WebSocket protocol version.
-	// 	//  Version int
-
-	// 	// TLS config for secure WebSocket (wss).
-	// 	TlsConfig: tlsConfig,
-
-	// 	//  // Additional header fields to be sent in WebSocket opening handshake.
-	// 	//  Header http.Header
-
-	// 	//  // Dialer used when opening websocket connections.
-	// 	//  Dialer *net.Dialer
-	// }
-
-	// ws, err := websocket.DialConfig(wsConfig)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return ws, nil
-}
+// 	return tc, err
+// }
 
 func newTransportConn(conn net.Conn) *transportConn {
 	tc := &transportConn{
@@ -193,55 +101,16 @@ func newTransportConn(conn net.Conn) *transportConn {
 }
 
 func (tc *transportConn) Read(b []byte) (n int, err error) {
-	// tlsConn := tc.conn.(*tls.Conn)
-	// fmt.Println("tlsConn", tlsConn.ConnectionState().HandshakeComplete)
-
-	// fmt.Println("tc read -1", len(b))
-
-	// givenBufferSize := 0
-	// if len(b) < 4096 {
-	// 	givenBufferSize = len(b)
-	// 	b = make([]byte, 4096)
-	// }
-
-	// fmt.Println("tc read 0", len(b))
 	n, err = tc.conn.Read(b)
-
-	// if givenBufferSize != 0 {
-	// 	b = b[:givenBufferSize]
-	// }
-
 	tc.Error = err
-	// fmt.Println("tc read 1", n, len(b), err)
-	// fmt.Println("tc read 2", string(b))
+
 	return
 }
 
 func (tc *transportConn) Write(b []byte) (n int, err error) {
-	// fmt.Println("tc write 0", len(b))
-
-	// givenBufferSize := 0
-	// if len(b) < 4096 {
-	// 	givenBufferSize = len(b)
-	// 	b = make([]byte, 4096)
-	// }
-
 	n, err = tc.conn.Write(b)
 	tc.Error = err
 
-	// if givenBufferSize != 0 {
-	// 	b = b[:givenBufferSize]
-	// 	n = givenBufferSize
-	// }
-
-	// if err != nil {
-	// 	fmt.Println("Write err", err)
-	// } else {
-	// 	fmt.Println("written ", n)
-	// }
-
-	// fmt.Println("Write")
-	// fmt.Println("tc Write", len(b), string(b))
 	return
 }
 
@@ -252,7 +121,6 @@ func (tc *transportConn) Close() (err error) {
 
 	tc.closed = true
 
-	// fmt.Println("close")
 	err = tc.conn.Close()
 	tc.Error = err
 	tc.wg.Done()

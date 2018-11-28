@@ -1,8 +1,6 @@
 package securelink
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net"
 )
 
@@ -11,23 +9,25 @@ type (
 	// It bases the service definition on the tls serverName client is asking for.
 	Listener struct {
 		tlsListener net.Listener
-		services    []*serviceRaw
+		services    []*Handler
 	}
 
 	// ServiceMatch is a simple function type which based on a string tells if
 	// the match is true or not
 	ServiceMatch func(serverName string) (match bool)
 
+	HandlerFunction func(conn net.Conn) (err error)
+
 	// Handler defines a interface to have other services after the TLS handshake.
 	// Register a new a new service which implement the Handler interface to mix
 	// HTTP with other protocols.
-	Handler interface {
-		Handle(net.Conn) error
-	}
+	// Handler interface {
+	// 	Handle(net.Conn) error
+	// }
 
 	serviceRaw struct {
-		name          string
-		handler       Handler
+		name string
+		// handler       Handler
 		matchFunction ServiceMatch
 	}
 )
@@ -39,75 +39,78 @@ func NewListener(tlsListener net.Listener) *Listener {
 	return cl
 }
 
-// Accept implements the net.Listener interface
-func (l *Listener) Accept() (net.Conn, error) {
-	fnErr := func(conn net.Conn, err error) (net.Conn, error) {
-		fmt.Println("print error from (l *Listener) Accept()", err)
-		if conn != nil {
-			conn.Close()
-			return conn, nil
-		}
-		return conn, nil
-	}
+// // Accept implements the net.Listener interface
+// func (l *Listener) Accept() (net.Conn, error) {
+// 	fnErr := func(conn net.Conn, err error) (net.Conn, error) {
+// 		fmt.Println("print error from (l *Listener) Accept()", err)
+// 		if conn != nil {
+// 			conn.Close()
+// 			return conn, nil
+// 		}
+// 		return conn, nil
+// 	}
 
-	conn, err := l.tlsListener.Accept()
-	if err != nil {
-		return nil, err
-	}
+// 	conn, err := l.tlsListener.Accept()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	tlsConn, ok := conn.(*tls.Conn)
-	if !ok {
-		return fnErr(conn, fmt.Errorf("the connection is not TLS"))
-	}
+// 	tlsConn, ok := conn.(*tls.Conn)
+// 	if !ok {
+// 		return fnErr(conn, fmt.Errorf("the connection is not TLS"))
+// 	}
 
-	err = tlsConn.Handshake()
-	if err != nil {
-		return fnErr(conn, err)
-	}
+// 	err = tlsConn.Handshake()
+// 	if err != nil {
+// 		return fnErr(conn, err)
+// 	}
 
-	for _, service := range l.services {
-		if service.matchFunction(tlsConn.ConnectionState().ServerName) {
-			err = service.handler.Handle(tlsConn)
-			if err != nil {
-				return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
-			}
+// 	for _, service := range l.services {
+// 		if service.matchFunction(tlsConn.ConnectionState().ServerName) {
+// 			err = service.Handle(tlsConn)
+// 			if err != nil {
+// 				return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
+// 			}
 
-			return tlsConn, nil
-		}
-	}
+// 			return tlsConn, nil
+// 		}
+// 	}
 
-	return tlsConn, nil
-}
+// 	return tlsConn, nil
+// }
 
-// Close implements the net.Listener interface
-func (l *Listener) Close() error {
-	return l.tlsListener.Close()
-}
+// // Close implements the net.Listener interface
+// func (l *Listener) Close() error {
+// 	return l.tlsListener.Close()
+// }
 
-// Addr implements the net.Listener interface
-func (l *Listener) Addr() net.Addr {
-	return l.tlsListener.Addr()
-}
+// // Addr implements the net.Listener interface
+// func (l *Listener) Addr() net.Addr {
+// 	return l.tlsListener.Addr()
+// }
 
-// RegisterService adds a new service with it's associated math function
-func (l *Listener) RegisterService(name string, serviceMatchFunc ServiceMatch, handler Handler) {
-	sr := new(serviceRaw)
-	sr.name = name
-	sr.handler = handler
-	sr.matchFunction = serviceMatchFunc
+// // RegisterService adds a new service with it's associated math function
+// func (l *Listener) RegisterService(name string, serviceMatchFunc ServiceMatch, handler *Handler) {
+// 	// sr := new(serviceRaw)
+// 	// sr.name = name
+// 	// sr.handler = handler
+// 	// sr.matchFunction = serviceMatchFunc
 
-	l.services = append(l.services, sr)
+// 	handler.name = name
+// 	handler.matchFunction = serviceMatchFunc
 
-	return
-}
+// 	l.services = append(l.services, handler)
 
-// DeregisterService removes a service base on the index
-func (l *Listener) DeregisterService(name string) {
-	for i, service := range l.services {
-		if service.name == name {
-			copy(l.services[i:], l.services[i+1:])
-			l.services[len(l.services)-1] = nil // or the zero value of T
-			l.services = l.services[:len(l.services)-1]
-		}
-	}
-}
+// 	return
+// }
+
+// // DeregisterService removes a service base on the index
+// func (l *Listener) DeregisterService(name string) {
+// 	for i, service := range l.services {
+// 		if service.name == name {
+// 			copy(l.services[i:], l.services[i+1:])
+// 			l.services[len(l.services)-1] = nil // or the zero value of T
+// 			l.services = l.services[:len(l.services)-1]
+// 		}
+// 	}
+// }

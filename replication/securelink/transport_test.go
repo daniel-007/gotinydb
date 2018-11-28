@@ -1,59 +1,66 @@
 package securelink_test
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/securelink"
-	"github.com/hashicorp/raft"
-	"github.com/labstack/echo"
 )
 
 func TestTransport(t *testing.T) {
 	ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "ca", "*.ca")
-	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "node", "*.node")
+	// cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "node", "*.node")
 
-	tlsListener, err := tls.Listen("tcp", ":3468", securelink.GetBaseTLSConfig("ca", ca))
+	// tlsListener, err := tls.Listen("tcp", ":3468", securelink.GetBaseTLSConfig("ca", ca))
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	// getRemoteAddressFunc := func(addr raft.ServerAddress) (serverID raft.ServerID) {
+	// 	return raft.ServerID("ca")
+	// }
+	// tr := securelink.NewTransport(tlsListener, cert, getRemoteAddressFunc)
+	// tr.HandleFunction = handle
+
+	// cl := securelink.NewListener(tlsListener)
+	// cl.RegisterService("direct", func(serverName string) bool {
+	// 	if serverName == "ca" {
+	// 		return true
+	// 	}
+
+	// 	return false
+	// }, tr)
+
+	// httpServer := &http.Server{}
+
+	// echo := echo.New()
+	// echo.Listener = cl
+	// echo.TLSListener = cl
+	// echo.TLSServer = httpServer
+	// echo.HideBanner = true
+	// echo.HidePort = true
+	getHostNameFunc := func(addr string) (serverID string) {
+		return "ca"
+	}
+	s, err := securelink.NewServer(":3468", securelink.GetBaseTLSConfig("ca", ca), ca, getHostNameFunc)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	getRemoteAddressFunc := func(addr raft.ServerAddress) (serverID raft.ServerID) {
-		return raft.ServerID("ca")
-	}
-	tr := securelink.NewTransport(tlsListener, cert, getRemoteAddressFunc)
-	tr.HandleFunction = handle
-
-	cl := securelink.NewListener(tlsListener)
-	cl.RegisterService("direct", func(serverName string) bool {
-		if serverName == "ca" {
-			return true
-		}
-
-		return false
-	}, tr)
-
-	echo := echo.New()
-	echo.Listener = cl
-	echo.TLSListener = cl
-	echo.HideBanner = true
-	echo.HidePort = true
-
-	httpServer := &http.Server{}
+	handler := securelink.NewHandler("direct", func(s string) bool { return true }, handle)
+	s.RegisterService(handler)
 
 	go func() {
-		err := echo.StartServer(httpServer)
+		err := s.Start()
 		t.Fatal(err)
 	}()
 
 	// Connect and close directly
 	var conn net.Conn
-	conn, err = tr.Dial(":3468", time.Second)
+	conn, err = s.Dial(":3468", time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +70,7 @@ func TestTransport(t *testing.T) {
 	}
 
 	// Connect, send a small message and read the response
-	conn, err = tr.Dial(":3468", time.Second)
+	conn, err = s.Dial(":3468", time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
