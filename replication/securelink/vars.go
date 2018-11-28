@@ -14,6 +14,16 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+type (
+	// ServiceMatch is a simple function type which based on a string tells if
+	// the match is true or not
+	ServiceMatch func(serverName string) (match bool)
+
+	// HandlerFunction defines the type of function the handler use
+	// when accessing to the related Handler
+	HandlerFunction func(conn net.Conn) (err error)
+)
+
 // Defines the supported key type
 const (
 	KeyTypeRSA KeyType = "RSA"

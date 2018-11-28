@@ -28,19 +28,6 @@ func NewServer(addr string, tlsConfig *tls.Config, cert *Certificate, getHostNam
 		return nil, err
 	}
 
-	// getRemoteAddressFunc := func(addr raft.ServerAddress) (serverID raft.ServerID) {
-	// 	return raft.ServerID("ca")
-	// }
-
-	// cl := NewListener(tlsListener)
-	// cl.RegisterService("direct", func(serverName string) bool {
-	// 	if serverName == "ca" {
-	// 		return true
-	// 	}
-
-	// 	return false
-	// }, tr)
-
 	s := &Server{
 		TLSListener: tlsListener,
 		Certificate: cert,
@@ -121,14 +108,7 @@ func (s *Server) Addr() net.Addr {
 
 // RegisterService adds a new service with it's associated math function
 func (s *Server) RegisterService(handler *Handler) {
-	// sr := new(serviceRaw)
-	// sr.name = name
-	// sr.handler = handler
-	// sr.matchFunction = serviceMatchFunc
-
 	s.Handlers = append(s.Handlers, handler)
-
-	return
 }
 
 // DeregisterService removes a service base on the index

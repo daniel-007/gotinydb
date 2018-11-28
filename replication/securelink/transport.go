@@ -31,8 +31,8 @@ type (
 	}
 )
 
+// NewHandler builds a new Hanlder pointer to use in a server object
 func NewHandler(name string, serviceMatchFunc ServiceMatch, handlerFunction HandlerFunction) *Handler {
-	// func NewServiceHandler(listener net.Listener, certificate *Certificate, getRemoteIDFromAddressFunc func(raft.ServerAddress) (serverID raft.ServerID)) *ServiceHandler {
 	return &Handler{
 		name:           name,
 		handleFunction: handlerFunction,
@@ -40,6 +40,7 @@ func NewHandler(name string, serviceMatchFunc ServiceMatch, handlerFunction Hand
 	}
 }
 
+// Handle is called when a client connect to the server and the client point to the service.
 func (t *Handler) Handle(conn net.Conn) (err error) {
 	if t.handleFunction == nil {
 		return fmt.Errorf("no handler registered")

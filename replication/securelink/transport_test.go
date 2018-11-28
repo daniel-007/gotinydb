@@ -12,36 +12,7 @@ import (
 
 func TestTransport(t *testing.T) {
 	ca, _ := securelink.NewCA(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "ca", "*.ca")
-	// cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "node", "*.node")
 
-	// tlsListener, err := tls.Listen("tcp", ":3468", securelink.GetBaseTLSConfig("ca", ca))
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
-	// getRemoteAddressFunc := func(addr raft.ServerAddress) (serverID raft.ServerID) {
-	// 	return raft.ServerID("ca")
-	// }
-	// tr := securelink.NewTransport(tlsListener, cert, getRemoteAddressFunc)
-	// tr.HandleFunction = handle
-
-	// cl := securelink.NewListener(tlsListener)
-	// cl.RegisterService("direct", func(serverName string) bool {
-	// 	if serverName == "ca" {
-	// 		return true
-	// 	}
-
-	// 	return false
-	// }, tr)
-
-	// httpServer := &http.Server{}
-
-	// echo := echo.New()
-	// echo.Listener = cl
-	// echo.TLSListener = cl
-	// echo.TLSServer = httpServer
-	// echo.HideBanner = true
-	// echo.HidePort = true
 	getHostNameFunc := func(addr string) (serverID string) {
 		return "ca"
 	}

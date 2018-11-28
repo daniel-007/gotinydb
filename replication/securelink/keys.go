@@ -82,7 +82,8 @@ func NewEc(keyLength KeyLength) *KeyPair {
 }
 
 // GetPrivateDER returns a slice of bytes which represent the private key as DER encoded
-func (k *KeyPair) GetPrivateDER() (ret []byte) {
+func (k *KeyPair) GetPrivateDER() []byte {
+	var ret []byte
 	if k.Type == KeyTypeRSA {
 		ret = x509.MarshalPKCS1PrivateKey(k.Private.(*rsa.PrivateKey))
 	} else if k.Type == KeyTypeEc {
