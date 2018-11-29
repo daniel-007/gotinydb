@@ -46,6 +46,10 @@ func (a *Addr) Network() string {
 	return "tcp"
 }
 
+func (a *Addr) IP() net.IP {
+	return net.ParseIP(a.MainAddr)
+}
+
 func GetAddresses() ([]string, error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {

@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alexandrestein/gotinydb/replication/common"
 	"github.com/labstack/echo"
 )
 
 type (
 	Server struct {
+		AddrStruct  *common.Addr
 		TLSListener net.Listener
 		Certificate *Certificate
 		TLSConfig   *tls.Config
@@ -22,13 +24,20 @@ type (
 	}
 )
 
-func NewServer(addr string, tlsConfig *tls.Config, cert *Certificate, getHostNameFromAddr FuncGetHostNameFromAddr) (*Server, error) {
-	tlsListener, err := tls.Listen("tcp", addr, tlsConfig)
+func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNameFromAddr FuncGetHostNameFromAddr) (*Server, error) {
+	addr, err := common.NewAddr(port)
+	if err != nil {
+		return nil, err
+	}
+
+	var tlsListener net.Listener
+	tlsListener, err = tls.Listen("tcp", addr.String(), tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Server{
+		AddrStruct:  addr,
 		TLSListener: tlsListener,
 		Certificate: cert,
 		TLSConfig:   tlsConfig,
@@ -107,7 +116,7 @@ func (s *Server) Close() error {
 
 // Addr implements the net.Listener interface
 func (s *Server) Addr() net.Addr {
-	return s.TLSListener.Addr()
+	return s.AddrStruct
 }
 
 // RegisterService adds a new service with it's associated math function

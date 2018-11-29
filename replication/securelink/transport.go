@@ -110,8 +110,8 @@ func (tc *TransportConn) Read(b []byte) (n int, err error) {
 	n, err = tc.conn.Read(b)
 	tc.err = err
 
-	fmt.Printf("read %p %d %d %v\n", tc, len(b), n, err)
-	// fmt.Printf("read %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
+	// fmt.Printf("read %p %d %d %v\n", tc, len(b), n, err)
+	fmt.Printf("read %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b[:n]))
 
 	return
 }
@@ -120,8 +120,8 @@ func (tc *TransportConn) Write(b []byte) (n int, err error) {
 	n, err = tc.conn.Write(b)
 	tc.err = err
 
-	fmt.Printf("write %p %d %d %v\n", tc, len(b), n, err)
-	// fmt.Printf("write %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
+	// fmt.Printf("write %p %d %d %v\n", tc, len(b), n, err)
+	fmt.Printf("write %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
 
 	return
 }
@@ -144,10 +144,6 @@ func (tc *TransportConn) Close() (err error) {
 func (tc *TransportConn) Wait() {
 	tc.wg.Wait()
 }
-
-// func (tc *TransportConn) Done() {
-// 	tc.wg.Done()
-// }
 
 func (tc *TransportConn) LocalAddr() net.Addr {
 	return tc.conn.LocalAddr()

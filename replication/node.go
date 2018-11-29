@@ -6,12 +6,11 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"os"
-	"time"
 
-	"github.com/hashicorp/raft"
+	"github.com/hashicorp/memberlist"
 	"github.com/labstack/echo"
 
+	memberlistInterface "github.com/alexandrestein/gotinydb/replication/memberlist"
 	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
 
@@ -20,51 +19,22 @@ type (
 		Echo        *echo.Echo
 		Certificate *securelink.Certificate
 
-		Raft                  *raft.Raft
-		RaftChan              chan bool
-		Server                *securelink.Server
-		raftFileSnapshotStore *raft.FileSnapshotStore
-		raftConfig            raft.Server
-
-		raftTransport *raftTransport
-
-		Path string
-
-		Addr net.Addr
-		// raftTransport         *securelink.Handler
+		Server     *securelink.Server
+		Memberlist *memberlist.Memberlist
 	}
 )
 
-func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.Certificate, bootstrap bool) (_ *Node, err error) {
+func NewNode(port uint16, cert *securelink.Certificate) (_ *Node, err error) {
 	n := new(Node)
 
-	err = os.MkdirAll(path, 1740)
-	if err != nil {
-		return nil, err
-	}
-
-	// n.waitingNodes = []raft.Server{}
-	n.Addr = addr
 	n.Certificate = cert
 
-	n.raftFileSnapshotStore, err = raft.NewFileSnapshotStore(path, 10, nil)
-	if err != nil {
-		return nil, err
-	}
-	n.raftConfig = raft.Server{
-		Suffrage: raft.Voter,
-		ID:       raft.ServerID(n.GetID().String()),
-		Address:  raft.ServerAddress(n.Addr.String()),
-	}
-
-	// n.buildRaftTransport()
-
-	err = n.startServer()
+	err = n.startServer(port)
 	if err != nil {
 		return nil, err
 	}
 
-	err = n.startRaft(raftStore, bootstrap)
+	err = n.startMemberlist()
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +42,7 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 	return n, nil
 }
 
-func (n *Node) startServer() error {
+func (n *Node) startServer(port uint16) error {
 	tlsConfig := securelink.GetBaseTLSConfig(n.GetID().String(), n.Certificate)
 
 	// tlsListener, err := tls.Listen("tcp", fmt.Sprintf(":%s", n.GetPort()), tlsConfig)
@@ -80,23 +50,11 @@ func (n *Node) startServer() error {
 	// 	return err
 	// }
 
-	s, err := securelink.NewServer(n.Addr.String(), tlsConfig, n.Certificate, n.GetIDFromAddr)
+	s, err := securelink.NewServer(port, tlsConfig, n.Certificate, n.GetIDFromAddr)
 	if err != nil {
 		return err
 	}
 	n.Server = s
-
-	isItRaftConn := func(serverName string) bool {
-		if CheckRaftHostRequestReg.MatchString(serverName) {
-			return true
-		}
-
-		return false
-	}
-
-	rt := n.getRaftTransport()
-	handler := securelink.NewHandler("raft", isItRaftConn, rt.Handle)
-	s.RegisterService(handler)
 
 	// cl := securelink.NewListener(tlsListener)
 	// cl.RegisterService("raft", , n.raftTransport)
@@ -124,8 +82,38 @@ func (n *Node) startServer() error {
 	return nil
 }
 
+func (n *Node) startMemberlist() error {
+	isMemberlist := func(serverName string) bool {
+		if CheckMemberlistHostRequestReg.MatchString(serverName) {
+			return true
+		}
+
+		return false
+	}
+
+	mt := memberlistInterface.NewMemberlistTransport(n.Server)
+
+	handler := securelink.NewHandler("memberlist", isMemberlist, mt.Handle)
+	n.Server.RegisterService(handler)
+
+	// mConfig := memberlist.DefaultWANConfig()
+	mConfig := memberlist.DefaultLocalConfig()
+	mConfig.DisableTcpPings = true
+	mConfig.AdvertisePort = int(n.Server.AddrStruct.Port)
+	mConfig.Transport = memberlistInterface.NewMemberlistTransport(n.Server)
+
+	list, err := memberlist.Create(mConfig)
+	if err != nil {
+		return err
+	}
+
+	n.Memberlist = list
+
+	return nil
+}
+
 func (n *Node) GetToken() (string, error) {
-	_, port, err := net.SplitHostPort(n.Addr.String())
+	_, port, err := net.SplitHostPort(n.Server.AddrStruct.String())
 	if err != nil {
 		return "", err
 	}
@@ -146,13 +134,12 @@ func (n *Node) GetID() *big.Int {
 // }
 
 func (n *Node) GetIDFromAddr(addr string) (serverID string) {
-	for i, server := range n.Raft.GetConfiguration().Configuration().Servers {
-		fmt.Println("GetIDFromAddr server i", i, server)
-		if server.Address == raft.ServerAddress(addr) {
-			return string(server.ID)
-		}
-	}
-
+	// for i, server := range n.Raft.GetConfiguration().Configuration().Servers {
+	// 	fmt.Println("GetIDFromAddr server i", i, server)
+	// 	if server.Address == raft.ServerAddress(addr) {
+	// 		return string(server.ID)
+	// 	}
+	// }
 	return n.getIDFromAddrByConnecting(addr)
 }
 
@@ -181,46 +168,14 @@ func (n *Node) getIDFromAddrByConnecting(addr string) (serverID string) {
 	return remoteCert.SerialNumber.String()
 }
 
-func (n *Node) getRaftTransport() *raftTransport {
-	if n.raftTransport == nil {
-		acceptChan := make(chan *securelink.TransportConn, 0)
-		n.raftTransport = &raftTransport{
-			Server:     n.Server,
-			acceptChan: acceptChan,
-		}
-	}
-
-	return n.raftTransport
+func (n *Node) Join(addrs []string) (int, error) {
+	return n.Memberlist.Join(addrs)
 }
 
-func (n *Node) AddVoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {
-	// lastIndex := n.Raft.LastIndex()
-	// return n.Raft.AddVoter(serverID, serverAddress, lastIndex, time.Second*5)
-	return n.Raft.AddVoter(serverID, serverAddress, 0, time.Second*2)
-}
-
-func (n *Node) AddNonvoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {
-	// lastIndex := n.Raft.LastIndex()
-	// return n.Raft.AddVoter(serverID, serverAddress, lastIndex, time.Second*5)
-	return n.Raft.AddNonvoter(serverID, serverAddress, 0, time.Second*2)
-}
-
-// GetPort return a string representation of the port from the address.
-// It has the form of "3169".
-func (n *Node) GetPort() string {
-	_, port := n.getHostAndPort()
-	return port
-}
-
-func (n *Node) GetHost() string {
-	host, _ := n.getHostAndPort()
-	return host
-}
-
-func (n *Node) getHostAndPort() (string, string) {
-	host, port, err := net.SplitHostPort(n.Addr.String())
-	if err != nil {
-		return "", ""
-	}
-	return host, port
-}
+// func (n *Node) getHostAndPort() (string, string) {
+// 	host, port, err := net.SplitHostPort(n.Addr.String())
+// 	if err != nil {
+// 		return "", ""
+// 	}
+// 	return host, port
+// }

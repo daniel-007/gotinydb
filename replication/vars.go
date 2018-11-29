@@ -12,8 +12,9 @@ var (
 	DefaultCertKeyLength    = securelink.KeyLengthEc384
 )
 
+// Are used to check if the client is looking for the raft
+// service inside the TLS service
 var (
-	// CheckRaftHostRequestReg is used to check if the client is looking for the raft
-	// service inside the TLS service
-	CheckRaftHostRequestReg = regexp.MustCompile("^raft\\.")
+	MemberlistHostNamePrefix      = "memberlist"
+	CheckMemberlistHostRequestReg = regexp.MustCompile("^" + MemberlistHostNamePrefix + "\\.")
 )

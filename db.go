@@ -105,7 +105,7 @@ func Open(path string, configKey [32]byte) (db *DB, err error) {
 		}
 	}
 
-	return db, db.startRaft()
+	return db, nil
 }
 
 func (d *DB) startBackgroundLoops() {
