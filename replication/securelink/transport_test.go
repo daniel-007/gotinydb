@@ -2,7 +2,6 @@ package securelink_test
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ func TestTransport(t *testing.T) {
 	getHostNameFunc := func(addr string) (serverID string) {
 		return "ca"
 	}
+
 	s, err := securelink.NewServer(":3468", securelink.GetBaseTLSConfig("ca", ca), ca, getHostNameFunc)
 	if err != nil {
 		t.Fatal(err)
@@ -76,10 +76,10 @@ func TestTransport(t *testing.T) {
 	}
 }
 
-func handle(conn net.Conn) error {
+func handle(conn *securelink.TransportConn) error {
 	buff := make([]byte, 4096)
 	n, err := conn.Read(buff)
-	if err != nil && err != io.EOF {
+	if err != nil {
 		return err
 	}
 

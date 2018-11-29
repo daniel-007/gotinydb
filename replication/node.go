@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"net/http"
 	"os"
 	"time"
 
@@ -23,13 +22,14 @@ type (
 
 		Raft                  *raft.Raft
 		RaftChan              chan bool
-		raftTransport         *Transport
+		Server                *securelink.Server
 		raftFileSnapshotStore *raft.FileSnapshotStore
 		raftConfig            raft.Server
 
 		Path string
 
 		Addr net.Addr
+		// raftTransport         *securelink.Handler
 	}
 )
 
@@ -55,7 +55,7 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 		Address:  raft.ServerAddress(n.Addr.String()),
 	}
 
-	n.buildRaftTransport()
+	// n.buildRaftTransport()
 
 	err = n.startServer()
 	if err != nil {
@@ -73,35 +73,48 @@ func NewNode(addr net.Addr, raftStore RaftStore, path string, cert *securelink.C
 func (n *Node) startServer() error {
 	tlsConfig := securelink.GetBaseTLSConfig(n.GetID().String(), n.Certificate)
 
-	tlsListener, err := tls.Listen("tcp", fmt.Sprintf(":%s", n.GetPort()), tlsConfig)
+	// tlsListener, err := tls.Listen("tcp", fmt.Sprintf(":%s", n.GetPort()), tlsConfig)
+	// if err != nil {
+	// 	return err
+	// }
+
+	s, err := securelink.NewServer(n.Addr.String(), tlsConfig, n.Certificate, n.GetIDFromAddr)
 	if err != nil {
 		return err
 	}
 
-	cl := securelink.NewListener(tlsListener)
-	cl.RegisterService("raft", func(serverName string) bool {
+	isItRaftConn := func(serverName string) bool {
 		if CheckRaftHostRequestReg.MatchString(serverName) {
 			return true
 		}
 
 		return false
-	}, n.raftTransport)
-
-	n.Echo = echo.New()
-	n.Echo.Server = &http.Server{
-		TLSConfig: tlsConfig,
 	}
-	n.Echo.TLSListener = cl
+	rt := n.getRaftTransport()
+	handler := securelink.NewHandler("raft", isItRaftConn, rt.Handle)
+	s.RegisterService(handler)
 
-	n.settupHandlers()
+	n.Server = s
 
-	httpServer := &http.Server{
-		TLSConfig: tlsConfig,
-		Handler:   nil,
-	}
+	// cl := securelink.NewListener(tlsListener)
+	// cl.RegisterService("raft", , n.raftTransport)
+
+	// n.Echo = echo.New()
+	// n.Echo.Server = &http.Server{
+	// 	TLSConfig: tlsConfig,
+	// }
+	// n.Echo.TLSListener = cl
+
+	// n.settupHandlers()
+
+	// httpServer := &http.Server{
+	// 	TLSConfig: tlsConfig,
+	// 	Handler:   nil,
+	// }
 
 	go func() {
-		err := n.Echo.StartServer(httpServer)
+		// err := n.Echo.StartServer(httpServer)
+		err = s.Start()
 		fmt.Println("merde avec le sever", err)
 		log.Fatal(err)
 	}()
@@ -121,27 +134,27 @@ func (n *Node) GetID() *big.Int {
 	return n.Certificate.Cert.SerialNumber
 }
 
-func (n *Node) buildRaftTransport() {
-	n.raftTransport = &Transport{
-		acceptChan:    make(chan *transportConn),
-		addr:          n.Addr,
-		cert:          n.Certificate,
-		getIDFromAddr: n.getIDFromAddr,
-	}
-}
+// func (n *Node) buildRaftTransport() {
+// 	n.raftTransport = &Transport{
+// 		acceptChan:    make(chan *transportConn),
+// 		addr:          n.Addr,
+// 		cert:          n.Certificate,
+// 		getIDFromAddr: n.getIDFromAddr,
+// 	}
+// }
 
-func (n *Node) getIDFromAddr(addr raft.ServerAddress) (serverID raft.ServerID) {
+func (n *Node) GetIDFromAddr(addr string) (serverID string) {
 	for i, server := range n.Raft.GetConfiguration().Configuration().Servers {
-		fmt.Println("server i", i, server)
-		if server.Address == addr {
-			return server.ID
+		fmt.Println("GetIDFromAddr server i", i, server)
+		if server.Address == raft.ServerAddress(addr) {
+			return string(server.ID)
 		}
 	}
 
 	return n.getIDFromAddrByConnecting(addr)
 }
 
-func (n *Node) getIDFromAddrByConnecting(addr raft.ServerAddress) (serverID raft.ServerID) {
+func (n *Node) getIDFromAddrByConnecting(addr string) (serverID string) {
 	tlsConfig := securelink.GetBaseTLSConfig("", n.Certificate)
 	tlsConfig.InsecureSkipVerify = true
 	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
@@ -163,11 +176,16 @@ func (n *Node) getIDFromAddrByConnecting(addr raft.ServerAddress) (serverID raft
 		return ""
 	}
 
-	return raft.ServerID(remoteCert.SerialNumber.String())
+	return remoteCert.SerialNumber.String()
 }
 
-func (n *Node) GetRaftTransport() *Transport {
-	return n.raftTransport
+func (n *Node) getRaftTransport() *raftTransport {
+	acceptChan := make(chan *securelink.TransportConn, 0)
+	rt := &raftTransport{
+		Server:     n.Server,
+		acceptChan: acceptChan,
+	}
+	return rt
 }
 
 func (n *Node) AddVoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {

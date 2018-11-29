@@ -16,14 +16,14 @@ type (
 		name string
 
 		// Certificate    *Certificate
-		handleFunction HandlerFunction
+		handleFunction FuncHandler
 
-		matchFunction ServiceMatch
+		matchFunction FuncServiceMatch
 
 		// listener net.Listener
 	}
 
-	transportConn struct {
+	TransportConn struct {
 		Error  error
 		wg     sync.WaitGroup
 		conn   net.Conn
@@ -32,7 +32,7 @@ type (
 )
 
 // NewHandler builds a new Hanlder pointer to use in a server object
-func NewHandler(name string, serviceMatchFunc ServiceMatch, handlerFunction HandlerFunction) *Handler {
+func NewHandler(name string, serviceMatchFunc FuncServiceMatch, handlerFunction FuncHandler) *Handler {
 	return &Handler{
 		name:           name,
 		handleFunction: handlerFunction,
@@ -51,29 +51,34 @@ func (t *Handler) Handle(conn net.Conn) (err error) {
 	return t.handleFunction(tc)
 }
 
-// func (t *ServiceHandler) Accept() (net.Conn, error) {
-// 	conn, err := t.listener.Accept()
-// 	if err != nil {
-// 		return nil, err
-// 	}
+// func (t *Handler) Accept() (net.Conn, error) {
+// 	// conn, err := t.listener.Accept()
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
 
-// 	tc := newTransportConn(conn)
+// 	// tc := newTransportConn(conn)
 
-// 	return tc, tc.Error
+// 	// return tc, tc.Error
+
+// 	return nil, fmt.Errorf("(t *Handler) Accept() (net.Conn, error) accept not implemented")
 // }
 
-// func (t *ServiceHandler) Addr() net.Addr {
-// 	return t.listener.Addr()
+// func (t *Handler) Addr() net.Addr {
+// 	// return t.listener.Addr()
+// 	fmt.Println("(t *Handler) Addr() net.Addr accept not implemented")
+// 	return nil
 // }
 
-// func (t *ServiceHandler) Close() error {
-// 	return t.listener.Close()
+// func (t *Handler) Close() error {
+// 	// return t.listener.Close()
+// 	return fmt.Errorf("(t *Handler) Close() error accept not implemented")
 // }
 
-// func (t *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
-// 	hostName := t.getCertHostNameFromAddr(addr)
+// func (s *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
+// 	hostName := s.getHostNameFromAddr(addr)
 
-// 	tlsConfig := GetBaseTLSConfig(string(hostName), t.Certificate)
+// 	tlsConfig := GetBaseTLSConfig(string(hostName), s.Certificate)
 
 // 	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
 // 	if err != nil {
@@ -90,8 +95,8 @@ func (t *Handler) Handle(conn net.Conn) (err error) {
 // 	return tc, err
 // }
 
-func newTransportConn(conn net.Conn) *transportConn {
-	tc := &transportConn{
+func newTransportConn(conn net.Conn) *TransportConn {
+	tc := &TransportConn{
 		wg:   sync.WaitGroup{},
 		conn: conn,
 	}
@@ -101,21 +106,21 @@ func newTransportConn(conn net.Conn) *transportConn {
 	return tc
 }
 
-func (tc *transportConn) Read(b []byte) (n int, err error) {
+func (tc *TransportConn) Read(b []byte) (n int, err error) {
 	n, err = tc.conn.Read(b)
 	tc.Error = err
 
 	return
 }
 
-func (tc *transportConn) Write(b []byte) (n int, err error) {
+func (tc *TransportConn) Write(b []byte) (n int, err error) {
 	n, err = tc.conn.Write(b)
 	tc.Error = err
 
 	return
 }
 
-func (tc *transportConn) Close() (err error) {
+func (tc *TransportConn) Close() (err error) {
 	if tc.closed {
 		return tc.Error
 	}
@@ -128,27 +133,31 @@ func (tc *transportConn) Close() (err error) {
 	return
 }
 
-func (tc *transportConn) LocalAddr() net.Addr {
+func (tc *TransportConn) Done() {
+	tc.wg.Done()
+}
+
+func (tc *TransportConn) LocalAddr() net.Addr {
 	return tc.conn.LocalAddr()
 }
 
-func (tc *transportConn) RemoteAddr() net.Addr {
+func (tc *TransportConn) RemoteAddr() net.Addr {
 	return tc.conn.RemoteAddr()
 }
 
-func (tc *transportConn) SetDeadline(t time.Time) (err error) {
+func (tc *TransportConn) SetDeadline(t time.Time) (err error) {
 	err = tc.conn.SetDeadline(t)
 	tc.Error = err
 	return
 }
 
-func (tc *transportConn) SetReadDeadline(t time.Time) (err error) {
+func (tc *TransportConn) SetReadDeadline(t time.Time) (err error) {
 	err = tc.conn.SetReadDeadline(t)
 	tc.Error = err
 	return
 }
 
-func (tc *transportConn) SetWriteDeadline(t time.Time) (err error) {
+func (tc *TransportConn) SetWriteDeadline(t time.Time) (err error) {
 	err = tc.conn.SetWriteDeadline(t)
 	tc.Error = err
 	return

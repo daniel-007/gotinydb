@@ -1,8 +1,11 @@
 package replication
 
 import (
+	"fmt"
+	"net"
 	"time"
 
+	"github.com/alexandrestein/gotinydb/replication/securelink"
 	"github.com/hashicorp/raft"
 )
 
@@ -11,6 +14,11 @@ type (
 		raft.StableStore
 		raft.LogStore
 		// raft.SnapshotStore
+	}
+
+	raftTransport struct {
+		*securelink.Server
+		acceptChan chan *securelink.TransportConn
 	}
 )
 
@@ -41,7 +49,7 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 		return err
 	}
 
-	tr := raft.NewNetworkTransport(n.raftTransport, 10, time.Second*2, nil)
+	tr := raft.NewNetworkTransport(n.getRaftTransport(), 10, time.Second*2, nil)
 
 	if bootstrap {
 		servers := raft.Configuration{
@@ -72,4 +80,22 @@ func (n *Node) startRaft(raftStore RaftStore, bootstrap bool) (err error) {
 	}
 
 	return err
+}
+
+func (rt *raftTransport) Accept() (net.Conn, error) {
+	conn, ok := <-rt.acceptChan
+	if !ok {
+		return nil, fmt.Errorf("server looks closes")
+	}
+	return conn, conn.Error
+}
+
+func (rt *raftTransport) Handle(conn *securelink.TransportConn) error {
+	rt.acceptChan <- conn
+	conn.Done()
+	return conn.Error
+}
+
+func (rt *raftTransport) Dial(address raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
+	return rt.Server.Dial(string(address), timeout)
 }

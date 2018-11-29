@@ -22,7 +22,7 @@ type (
 	}
 )
 
-func NewServer(addr string, tlsConfig *tls.Config, cert *Certificate, getHostNameFromAddr func(string) string) (*Server, error) {
+func NewServer(addr string, tlsConfig *tls.Config, cert *Certificate, getHostNameFromAddr FuncGetHostNameFromAddr) (*Server, error) {
 	tlsListener, err := tls.Listen("tcp", addr, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -53,6 +53,7 @@ func NewServer(addr string, tlsConfig *tls.Config, cert *Certificate, getHostNam
 }
 
 func (s *Server) Start() error {
+	// return s.TLSListener.
 	return s.Echo.StartServer(s.Echo.TLSServer)
 }
 
@@ -139,5 +140,5 @@ func (t *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
 
 	tc := newTransportConn(conn)
 
-	return tc, err
+	return tc, nil
 }
