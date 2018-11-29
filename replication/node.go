@@ -26,6 +26,8 @@ type (
 		raftFileSnapshotStore *raft.FileSnapshotStore
 		raftConfig            raft.Server
 
+		raftTransport *raftTransport
+
 		Path string
 
 		Addr net.Addr
@@ -82,6 +84,7 @@ func (n *Node) startServer() error {
 	if err != nil {
 		return err
 	}
+	n.Server = s
 
 	isItRaftConn := func(serverName string) bool {
 		if CheckRaftHostRequestReg.MatchString(serverName) {
@@ -90,11 +93,10 @@ func (n *Node) startServer() error {
 
 		return false
 	}
+
 	rt := n.getRaftTransport()
 	handler := securelink.NewHandler("raft", isItRaftConn, rt.Handle)
 	s.RegisterService(handler)
-
-	n.Server = s
 
 	// cl := securelink.NewListener(tlsListener)
 	// cl.RegisterService("raft", , n.raftTransport)
@@ -180,12 +182,15 @@ func (n *Node) getIDFromAddrByConnecting(addr string) (serverID string) {
 }
 
 func (n *Node) getRaftTransport() *raftTransport {
-	acceptChan := make(chan *securelink.TransportConn, 0)
-	rt := &raftTransport{
-		Server:     n.Server,
-		acceptChan: acceptChan,
+	if n.raftTransport == nil {
+		acceptChan := make(chan *securelink.TransportConn, 0)
+		n.raftTransport = &raftTransport{
+			Server:     n.Server,
+			acceptChan: acceptChan,
+		}
 	}
-	return rt
+
+	return n.raftTransport
 }
 
 func (n *Node) AddVoter(serverID raft.ServerID, serverAddress raft.ServerAddress) raft.IndexFuture {

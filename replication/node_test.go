@@ -22,6 +22,10 @@ func init() {
 }
 
 func TestOneNode(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	dbPath := os.TempDir() + "/testRaftNode"
 	defer os.RemoveAll(dbPath)
 
@@ -48,34 +52,38 @@ func TestOneNode(t *testing.T) {
 }
 
 func TestThreeNodes(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	dbPath1 := os.TempDir() + "/testRaftNode1"
 	dbPath2 := os.TempDir() + "/testRaftNode2"
-	dbPath3 := os.TempDir() + "/testRaftNode3"
+	// dbPath3 := os.TempDir() + "/testRaftNode3"
 	defer os.RemoveAll(dbPath1)
 	defer os.RemoveAll(dbPath2)
-	defer os.RemoveAll(dbPath3)
+	// defer os.RemoveAll(dbPath3)
 
 	addrs1, _ := common.NewAddr(1251)
 	addrs2, _ := common.NewAddr(1252)
-	addrs3, _ := common.NewAddr(1253)
+	// addrs3, _ := common.NewAddr(1253)
 
 	db1, _ := gotinydb.Open(dbPath1, [32]byte{})
 	rs1 := db1.GetRaftStore()
 	db2, _ := gotinydb.Open(dbPath2, [32]byte{})
 	rs2 := db2.GetRaftStore()
-	db3, _ := gotinydb.Open(dbPath3, [32]byte{})
-	rs3 := db3.GetRaftStore()
+	// db3, _ := gotinydb.Open(dbPath3, [32]byte{})
+	// rs3 := db3.GetRaftStore()
 
 	cert1, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
 	cert2, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
-	cert3, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
+	// cert3, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc256, time.Hour, securelink.GetCertTemplate(nil, nil))
 
 	node1, err := replication.NewNode(addrs1, rs1, dbPath1+"/raftStore", cert1, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var node2, node3 *replication.Node
+	var node2 *replication.Node
 	node2, err = replication.NewNode(addrs2, rs2, dbPath2+"/raftStore", cert2, false)
 	if err != nil {
 		t.Fatal(err)
@@ -84,17 +92,18 @@ func TestThreeNodes(t *testing.T) {
 	// 	replication.GetRaftConfig(node2.GetID().String(), node2.RaftChan),
 	// )
 
-	f := node1.AddVoter(raft.ServerID(node2.GetID().String()), raft.ServerAddress(node2.Addr.String()))
+	f := node1.AddNonvoter(raft.ServerID(node2.GetID().String()), raft.ServerAddress(node2.Addr.String()))
 	if err := f.Error(); err != nil {
 		t.Fatal(err)
 	}
 
-	node3, err = replication.NewNode(addrs3, rs3, dbPath3+"/raftStore", cert3, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// var node3 *replication.Node
+	// node3, err = replication.NewNode(addrs3, rs3, dbPath3+"/raftStore", cert3, false)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
-	node3.GetID().String()
+	// node3.GetID().String()
 	// f = node1.AddVoter(raft.ServerID(node3.GetID().String()), raft.ServerAddress(node3.Addr.String()))
 	// if err := f.Error(); err != nil {
 	// 	t.Fatal(err)

@@ -20,6 +20,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect
 	github.com/hashicorp/raft v1.0.0
+	// github.com/hashicorp/raft v0.0.0-00000000000000-82694fb663be3ffa7769961ee9a65e4c39ebbf2c
 	github.com/labstack/echo v3.3.5+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect

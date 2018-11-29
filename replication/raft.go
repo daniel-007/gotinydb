@@ -87,15 +87,48 @@ func (rt *raftTransport) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("server looks closes")
 	}
-	return conn, conn.Error
+	return conn, conn.Error()
 }
 
 func (rt *raftTransport) Handle(conn *securelink.TransportConn) error {
 	rt.acceptChan <- conn
-	conn.Done()
-	return conn.Error
+
+	conn.Wait()
+
+	fmt.Println("handle DONE")
+
+	return conn.Error()
 }
 
 func (rt *raftTransport) Dial(address raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
-	return rt.Server.Dial(string(address), timeout)
+	// var retAddr string
+	// addr := string(address)
+
+	// host, _, err := net.SplitHostPort(string(address))
+	// if err != nil {
+	// 	fmt.Println("err", err)
+	// 	return nil, err
+	// }
+
+	// fmt.Println("host", host)
+	// if addrType := net.ParseIP(host); addrType == nil {
+	// 	fmt.Println("addrType", addrType, addr)
+	// 	retAddr = fmt.Sprintf("raft.%s", addr)
+	// } else {
+	// 	fmt.Println("addrType bad", addrType, addr)
+	// 	retAddr = addr
+	// }
+
+	// fmt.Println("ret", retAddr)
+
+	// return rt.Server.Dial(
+	// 	retAddr,
+	// 	timeout,
+	// )
+
+	return rt.Server.Dial(
+		string(address),
+		"raft",
+		timeout,
+	)
 }

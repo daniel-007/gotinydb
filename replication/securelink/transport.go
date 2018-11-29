@@ -24,7 +24,7 @@ type (
 	}
 
 	TransportConn struct {
-		Error  error
+		err    error
 		wg     sync.WaitGroup
 		conn   net.Conn
 		closed bool
@@ -108,34 +108,46 @@ func newTransportConn(conn net.Conn) *TransportConn {
 
 func (tc *TransportConn) Read(b []byte) (n int, err error) {
 	n, err = tc.conn.Read(b)
-	tc.Error = err
+	tc.err = err
+
+	fmt.Printf("read %p %d %d %v\n", tc, len(b), n, err)
+	// fmt.Printf("read %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
 
 	return
 }
 
 func (tc *TransportConn) Write(b []byte) (n int, err error) {
 	n, err = tc.conn.Write(b)
-	tc.Error = err
+	tc.err = err
+
+	fmt.Printf("write %p %d %d %v\n", tc, len(b), n, err)
+	// fmt.Printf("write %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
 
 	return
 }
 
 func (tc *TransportConn) Close() (err error) {
+	fmt.Println("close")
+
 	if tc.closed {
-		return tc.Error
+		return tc.err
 	}
 
 	tc.closed = true
 
 	err = tc.conn.Close()
-	tc.Error = err
+	tc.err = err
 	tc.wg.Done()
 	return
 }
 
-func (tc *TransportConn) Done() {
-	tc.wg.Done()
+func (tc *TransportConn) Wait() {
+	tc.wg.Wait()
 }
+
+// func (tc *TransportConn) Done() {
+// 	tc.wg.Done()
+// }
 
 func (tc *TransportConn) LocalAddr() net.Addr {
 	return tc.conn.LocalAddr()
@@ -147,18 +159,22 @@ func (tc *TransportConn) RemoteAddr() net.Addr {
 
 func (tc *TransportConn) SetDeadline(t time.Time) (err error) {
 	err = tc.conn.SetDeadline(t)
-	tc.Error = err
+	tc.err = err
 	return
 }
 
 func (tc *TransportConn) SetReadDeadline(t time.Time) (err error) {
 	err = tc.conn.SetReadDeadline(t)
-	tc.Error = err
+	tc.err = err
 	return
 }
 
 func (tc *TransportConn) SetWriteDeadline(t time.Time) (err error) {
 	err = tc.conn.SetWriteDeadline(t)
-	tc.Error = err
+	tc.err = err
 	return
+}
+
+func (tc *TransportConn) Error() error {
+	return tc.err
 }

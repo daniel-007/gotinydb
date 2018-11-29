@@ -18,7 +18,7 @@ type (
 		Echo        *echo.Echo
 		Handlers    []*Handler
 
-		getHostNameFromAddr func(addr string) (hostName string)
+		getHostNameFromAddr FuncGetHostNameFromAddr
 	}
 )
 
@@ -83,14 +83,17 @@ func (s *Server) Accept() (net.Conn, error) {
 		return fnErr(conn, err)
 	}
 
-	for _, service := range s.Handlers {
-		if service.matchFunction(tlsConn.ConnectionState().ServerName) {
-			err = service.Handle(tlsConn)
-			if err != nil {
-				return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
-			}
+	if tlsConn.ConnectionState().ServerName != "" {
+		for _, service := range s.Handlers {
+			if service.matchFunction(tlsConn.ConnectionState().ServerName) {
+				fmt.Println("handle", s.Certificate.ID().String())
+				err = service.Handle(tlsConn)
+				if err != nil {
+					return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
+				}
 
-			return tlsConn, nil
+				return tlsConn, nil
+			}
 		}
 	}
 
@@ -123,11 +126,16 @@ func (s *Server) DeregisterService(name string) {
 	}
 }
 
-func (t *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
-	hostName := t.getHostNameFromAddr(addr)
+func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.Conn, error) {
+	hostName := s.getHostNameFromAddr(addr)
 
-	tlsConfig := GetBaseTLSConfig(hostName, t.Certificate)
+	if hostNamePrefix != "" {
+		hostName = fmt.Sprintf("%s.%s", hostNamePrefix, hostName)
+	}
 
+	tlsConfig := GetBaseTLSConfig(hostName, s.Certificate)
+
+	fmt.Println("dial from", s.Certificate.ID().String(), "to", hostName)
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
 		return nil, err
