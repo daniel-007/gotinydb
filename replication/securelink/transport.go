@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"time"
 )
 
 type (
@@ -20,6 +19,7 @@ type (
 		matchFunction FuncServiceMatch
 	}
 
+	// TransportConn is an interface to
 	TransportConn struct {
 		*tls.Conn
 		Server bool
@@ -56,42 +56,6 @@ func newTransportConn(conn net.Conn, server bool) (*TransportConn, error) {
 	}
 
 	return tc, nil
-}
-
-func (tc *TransportConn) Read(b []byte) (n int, err error) {
-	n, err = tc.Conn.Read(b)
-
-	return
-}
-
-func (tc *TransportConn) Write(b []byte) (n int, err error) {
-	n, err = tc.Conn.Write(b)
-
-	return
-}
-
-func (tc *TransportConn) Close() (err error) {
-	return tc.Conn.Close()
-}
-
-func (tc *TransportConn) LocalAddr() net.Addr {
-	return tc.Conn.LocalAddr()
-}
-
-func (tc *TransportConn) RemoteAddr() net.Addr {
-	return tc.Conn.RemoteAddr()
-}
-
-func (tc *TransportConn) SetDeadline(t time.Time) (err error) {
-	return tc.Conn.SetDeadline(t)
-}
-
-func (tc *TransportConn) SetReadDeadline(t time.Time) (err error) {
-	return tc.Conn.SetReadDeadline(t)
-}
-
-func (tc *TransportConn) SetWriteDeadline(t time.Time) (err error) {
-	return tc.Conn.SetWriteDeadline(t)
 }
 
 // GetID provides a way to get an ID which in the package can be found

@@ -11,19 +11,23 @@ import (
 )
 
 type (
+	// Server provides a good way to have many services on one sign open port.
+	// Regester services which are selected with a tls host name prefix.
 	Server struct {
-		// Ctx         context.Context
 		AddrStruct  *common.Addr
 		TLSListener net.Listener
 		Certificate *Certificate
 		TLSConfig   *tls.Config
 		Handlers    []*Handler
-		ErrChan     chan error
 
 		getHostNameFromAddr FuncGetHostNameFromAddr
 	}
 )
 
+// NewServer builds a new server. Provide the port you want the server to listen on.
+// The TLS configuration you want to use with a certificate pointer.
+// getHostNameFromAddr is a function which gets the remote server hostname.
+// This will be used to check the certificate name the server is giving.
 func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNameFromAddr FuncGetHostNameFromAddr) (*Server, error) {
 	addr, err := common.NewAddr(port)
 	if err != nil {
@@ -132,6 +136,7 @@ func (s *Server) DeregisterService(name string) {
 	}
 }
 
+// Dial is used to connect to on other server and set a prefix to access specific registered service
 func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.Conn, error) {
 	hostName := s.getHostNameFromAddr(addr)
 
@@ -139,19 +144,5 @@ func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.C
 		hostName = fmt.Sprintf("%s.%s", hostNamePrefix, hostName)
 	}
 
-	tlsConfig := GetBaseTLSConfig(hostName, s.Certificate)
-
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	err = conn.SetDeadline(time.Now().Add(timeout))
-	if err != nil {
-		return nil, err
-	}
-
-	tc, _ := newTransportConn(conn, false)
-
-	return tc, nil
+	return NewServiceConnector(addr, hostName, s.Certificate, timeout)
 }
