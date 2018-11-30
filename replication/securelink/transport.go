@@ -51,50 +51,6 @@ func (t *Handler) Handle(conn net.Conn) (err error) {
 	return t.handleFunction(tc)
 }
 
-// func (t *Handler) Accept() (net.Conn, error) {
-// 	// conn, err := t.listener.Accept()
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
-
-// 	// tc := newTransportConn(conn)
-
-// 	// return tc, tc.Error
-
-// 	return nil, fmt.Errorf("(t *Handler) Accept() (net.Conn, error) accept not implemented")
-// }
-
-// func (t *Handler) Addr() net.Addr {
-// 	// return t.listener.Addr()
-// 	fmt.Println("(t *Handler) Addr() net.Addr accept not implemented")
-// 	return nil
-// }
-
-// func (t *Handler) Close() error {
-// 	// return t.listener.Close()
-// 	return fmt.Errorf("(t *Handler) Close() error accept not implemented")
-// }
-
-// func (s *Server) Dial(addr string, timeout time.Duration) (net.Conn, error) {
-// 	hostName := s.getHostNameFromAddr(addr)
-
-// 	tlsConfig := GetBaseTLSConfig(string(hostName), s.Certificate)
-
-// 	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	err = conn.SetDeadline(time.Now().Add(timeout))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	tc := newTransportConn(conn)
-
-// 	return tc, err
-// }
-
 func newTransportConn(conn net.Conn) *TransportConn {
 	tc := &TransportConn{
 		wg:   sync.WaitGroup{},
