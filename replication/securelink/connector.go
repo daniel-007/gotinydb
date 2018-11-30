@@ -24,6 +24,7 @@ func GetBaseTLSConfig(host string, cert *Certificate) *tls.Config {
 		ServerName:   host,
 		Certificates: []tls.Certificate{cert.GetTLSCertificate()},
 		RootCAs:      cert.CertPool,
+		NextProtos:   []string{"h2"},
 	}
 }
 
@@ -46,4 +47,8 @@ func NewServiceConnector(addr, host string, cert *Certificate, timeout time.Dura
 	tc, _ := newTransportConn(conn, false)
 
 	return tc, nil
+}
+
+func NewHTTPSConnector2(host string, cert *Certificate) *http.Client {
+	return nil
 }

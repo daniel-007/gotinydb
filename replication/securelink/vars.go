@@ -24,7 +24,7 @@ type (
 
 	// FuncHandler defines the type of function the handler use
 	// when accessing to the related Handler
-	FuncHandler func(conn *TransportConn) (err error)
+	FuncHandler func(conn net.Conn) (err error)
 )
 
 // Defines the supported key type

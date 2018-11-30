@@ -8,15 +8,23 @@ import (
 )
 
 type (
-	// Handler provides a way to use multiple handlers inside a sign TLS listener.
-	// You specify the TLS certificate for server but the same certificate is used in case
-	// of Dial.
-	Handler struct {
+	handler struct {
 		name string
 
 		handleFunction FuncHandler
 
 		matchFunction FuncServiceMatch
+	}
+
+	// Handler provides a way to use multiple handlers inside a sign TLS listener.
+	// You specify the TLS certificate for server but the same certificate is used in case
+	// of Dial.
+	Handler interface {
+		Name() string
+
+		Handle(conn net.Conn) error
+
+		Match(hostName string) bool
 	}
 
 	// TransportConn is an interface to
@@ -27,8 +35,8 @@ type (
 )
 
 // NewHandler builds a new Hanlder pointer to use in a server object
-func NewHandler(name string, serviceMatchFunc FuncServiceMatch, handlerFunction FuncHandler) *Handler {
-	return &Handler{
+func NewHandler(name string, serviceMatchFunc FuncServiceMatch, handlerFunction FuncHandler) Handler {
+	return &handler{
 		name:           name,
 		handleFunction: handlerFunction,
 		matchFunction:  serviceMatchFunc,
@@ -36,12 +44,20 @@ func NewHandler(name string, serviceMatchFunc FuncServiceMatch, handlerFunction 
 }
 
 // Handle is called when a client connect to the server and the client point to the service.
-func (t *Handler) Handle(conn *TransportConn) (err error) {
+func (t *handler) Handle(conn net.Conn) (err error) {
 	if t.handleFunction == nil {
 		return fmt.Errorf("no handler registered")
 	}
 
 	return t.handleFunction(conn)
+}
+
+func (t *handler) Name() string {
+	return t.name
+}
+
+func (t *handler) Match(hostName string) bool {
+	return t.matchFunction(hostName)
 }
 
 func newTransportConn(conn net.Conn, server bool) (*TransportConn, error) {

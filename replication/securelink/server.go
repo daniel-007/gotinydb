@@ -18,7 +18,7 @@ type (
 		TLSListener net.Listener
 		Certificate *Certificate
 		TLSConfig   *tls.Config
-		Handlers    []*Handler
+		Handlers    []Handler
 
 		getHostNameFromAddr FuncGetHostNameFromAddr
 	}
@@ -46,7 +46,7 @@ func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNam
 		TLSListener: tlsListener,
 		Certificate: cert,
 		TLSConfig:   tlsConfig,
-		Handlers:    []*Handler{},
+		Handlers:    []Handler{},
 
 		getHostNameFromAddr: getHostNameFromAddr,
 	}
@@ -98,7 +98,8 @@ func (s *Server) Accept() (net.Conn, error) {
 
 	if tlsConn.ConnectionState().ServerName != "" {
 		for _, service := range s.Handlers {
-			if service.matchFunction(tc.ConnectionState().ServerName) {
+			if service.Match(tc.ConnectionState().ServerName) {
+				// if service.matchFunction(tc.ConnectionState().ServerName) {
 				go service.Handle(tc)
 				return nil, nil
 			}
@@ -121,14 +122,14 @@ func (s *Server) Addr() net.Addr {
 }
 
 // RegisterService adds a new service with it's associated math function
-func (s *Server) RegisterService(handler *Handler) {
+func (s *Server) RegisterService(handler Handler) {
 	s.Handlers = append(s.Handlers, handler)
 }
 
 // DeregisterService removes a service base on the index
 func (s *Server) DeregisterService(name string) {
 	for i, service := range s.Handlers {
-		if service.name == name {
+		if service.Name() == name {
 			copy(s.Handlers[i:], s.Handlers[i+1:])
 			s.Handlers[len(s.Handlers)-1] = nil // or the zero value of T
 			s.Handlers = s.Handlers[:len(s.Handlers)-1]
