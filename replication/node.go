@@ -1,7 +1,6 @@
 package replication
 
 import (
-	"crypto/tls"
 	"fmt"
 	"log"
 	"math/big"
@@ -143,30 +142,30 @@ func (n *Node) GetIDFromAddr(addr string) (serverID string) {
 	return n.getIDFromAddrByConnecting(addr)
 }
 
-func (n *Node) getIDFromAddrByConnecting(addr string) (serverID string) {
-	tlsConfig := securelink.GetBaseTLSConfig("", n.Certificate)
-	tlsConfig.InsecureSkipVerify = true
-	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
-	if err != nil {
-		fmt.Println("err -1", err)
-		return ""
-	}
+// func (n *Node) getIDFromAddrByConnecting(addr string) (serverID string) {
+// 	tlsConfig := securelink.GetBaseTLSConfig("", n.Certificate)
+// 	tlsConfig.InsecureSkipVerify = true
+// 	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
+// 	if err != nil {
+// 		fmt.Println("err -1", err)
+// 		return ""
+// 	}
 
-	err = conn.Handshake()
-	if err != nil {
-		fmt.Println("err 0", err)
-		return ""
-	}
+// 	err = conn.Handshake()
+// 	if err != nil {
+// 		fmt.Println("err 0", err)
+// 		return ""
+// 	}
 
-	remoteCert := conn.ConnectionState().PeerCertificates[0]
-	err = remoteCert.CheckSignatureFrom(n.Certificate.CACert)
-	if err != nil {
-		fmt.Println("err 1", err)
-		return ""
-	}
+// 	remoteCert := conn.ConnectionState().PeerCertificates[0]
+// 	err = remoteCert.CheckSignatureFrom(n.Certificate.CACert)
+// 	if err != nil {
+// 		fmt.Println("err 1", err)
+// 		return ""
+// 	}
 
-	return remoteCert.SerialNumber.String()
-}
+// 	return remoteCert.SerialNumber.String()
+// }
 
 func (n *Node) Join(addrs []string) (int, error) {
 	return n.Memberlist.Join(addrs)

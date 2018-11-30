@@ -1,9 +1,10 @@
 package securelink
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -12,22 +13,16 @@ type (
 	// You specify the TLS certificate for server but the same certificate is used in case
 	// of Dial.
 	Handler struct {
-		// addr net.Addr
 		name string
 
-		// Certificate    *Certificate
 		handleFunction FuncHandler
 
 		matchFunction FuncServiceMatch
-
-		// listener net.Listener
 	}
 
 	TransportConn struct {
-		err    error
-		wg     sync.WaitGroup
-		conn   net.Conn
-		closed bool
+		*tls.Conn
+		Server bool
 	}
 )
 
@@ -41,92 +36,94 @@ func NewHandler(name string, serviceMatchFunc FuncServiceMatch, handlerFunction 
 }
 
 // Handle is called when a client connect to the server and the client point to the service.
-func (t *Handler) Handle(conn net.Conn) (err error) {
+func (t *Handler) Handle(conn *TransportConn) (err error) {
 	if t.handleFunction == nil {
 		return fmt.Errorf("no handler registered")
 	}
 
-	tc := newTransportConn(conn)
-
-	return t.handleFunction(tc)
+	return t.handleFunction(conn)
 }
 
-func newTransportConn(conn net.Conn) *TransportConn {
-	tc := &TransportConn{
-		wg:   sync.WaitGroup{},
-		conn: conn,
+func newTransportConn(conn net.Conn, server bool) (*TransportConn, error) {
+	tlsConn, ok := conn.(*tls.Conn)
+	if !ok {
+		return nil, fmt.Errorf("can't build Transport connection, the net.Conn interface is not a *tls.Conn pointer %T", conn)
 	}
 
-	tc.wg.Add(1)
+	tc := &TransportConn{
+		Conn:   tlsConn,
+		Server: server,
+	}
 
-	return tc
+	return tc, nil
 }
 
 func (tc *TransportConn) Read(b []byte) (n int, err error) {
-	n, err = tc.conn.Read(b)
-	tc.err = err
-
-	// fmt.Printf("read %p %d %d %v\n", tc, len(b), n, err)
-	fmt.Printf("read %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b[:n]))
+	n, err = tc.Conn.Read(b)
 
 	return
 }
 
 func (tc *TransportConn) Write(b []byte) (n int, err error) {
-	n, err = tc.conn.Write(b)
-	tc.err = err
-
-	// fmt.Printf("write %p %d %d %v\n", tc, len(b), n, err)
-	fmt.Printf("write %p %d %d %v\n\t%s\n\n", tc, len(b), n, err, string(b))
+	n, err = tc.Conn.Write(b)
 
 	return
 }
 
 func (tc *TransportConn) Close() (err error) {
-	fmt.Println("close")
-
-	if tc.closed {
-		return tc.err
-	}
-
-	tc.closed = true
-
-	err = tc.conn.Close()
-	tc.err = err
-	tc.wg.Done()
-	return
-}
-
-func (tc *TransportConn) Wait() {
-	tc.wg.Wait()
+	return tc.Conn.Close()
 }
 
 func (tc *TransportConn) LocalAddr() net.Addr {
-	return tc.conn.LocalAddr()
+	return tc.Conn.LocalAddr()
 }
 
 func (tc *TransportConn) RemoteAddr() net.Addr {
-	return tc.conn.RemoteAddr()
+	return tc.Conn.RemoteAddr()
 }
 
 func (tc *TransportConn) SetDeadline(t time.Time) (err error) {
-	err = tc.conn.SetDeadline(t)
-	tc.err = err
-	return
+	return tc.Conn.SetDeadline(t)
 }
 
 func (tc *TransportConn) SetReadDeadline(t time.Time) (err error) {
-	err = tc.conn.SetReadDeadline(t)
-	tc.err = err
-	return
+	return tc.Conn.SetReadDeadline(t)
 }
 
 func (tc *TransportConn) SetWriteDeadline(t time.Time) (err error) {
-	err = tc.conn.SetWriteDeadline(t)
-	tc.err = err
-	return
+	return tc.Conn.SetWriteDeadline(t)
 }
 
-func (tc *TransportConn) Error() error {
-	return tc.err
+// GetID provides a way to get an ID which in the package can be found
+// as the first host name from the certificate.
+// This function contact the server at the given address with an "insecure" connection
+// to get it's certificate. Checks that the certificate is valid for the given certificate if given.
+// From the certificate it extract the first HostName which is return.
+func GetID(addr string, cert *Certificate) (serverID string) {
+	tlsConfig := GetBaseTLSConfig("", cert)
+	tlsConfig.InsecureSkipVerify = true
+	conn, err := tls.Dial("tcp", string(addr), tlsConfig)
+	if err != nil {
+		return ""
+	}
+
+	err = conn.Handshake()
+	if err != nil {
+		return ""
+	}
+
+	if len(conn.ConnectionState().PeerCertificates) < 1 {
+		return ""
+	}
+
+	remoteCert := conn.ConnectionState().PeerCertificates[0]
+	opts := x509.VerifyOptions{
+		Roots: cert.CertPool,
+	}
+
+	if _, err := remoteCert.Verify(opts); err != nil {
+		return ""
+	}
+
+	return remoteCert.SerialNumber.String()
 }

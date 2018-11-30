@@ -46,6 +46,10 @@ func (a *Addr) Network() string {
 	return "tcp"
 }
 
+func (a *Addr) ForListenerBroadcast() string {
+	return fmt.Sprintf(":%d", a.Port)
+}
+
 func (a *Addr) IP() net.IP {
 	return net.ParseIP(a.MainAddr)
 }

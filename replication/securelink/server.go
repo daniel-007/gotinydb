@@ -4,21 +4,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/alexandrestein/gotinydb/replication/common"
-	"github.com/labstack/echo"
 )
 
 type (
 	Server struct {
+		// Ctx         context.Context
 		AddrStruct  *common.Addr
 		TLSListener net.Listener
 		Certificate *Certificate
 		TLSConfig   *tls.Config
-		Echo        *echo.Echo
 		Handlers    []*Handler
+		ErrChan     chan error
 
 		getHostNameFromAddr FuncGetHostNameFromAddr
 	}
@@ -31,12 +31,13 @@ func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNam
 	}
 
 	var tlsListener net.Listener
-	tlsListener, err = tls.Listen("tcp", addr.String(), tlsConfig)
+	tlsListener, err = tls.Listen("tcp", addr.ForListenerBroadcast(), tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Server{
+		// Ctx:         ctx,
 		AddrStruct:  addr,
 		TLSListener: tlsListener,
 		Certificate: cert,
@@ -46,24 +47,21 @@ func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNam
 		getHostNameFromAddr: getHostNameFromAddr,
 	}
 
-	httpServer := &http.Server{}
+	go func(s *Server) {
+		isListenerClosedReg := regexp.MustCompile(": use of closed network connection$")
+		for {
+			_, err := s.Accept()
+			if err != nil {
+				if isListenerClosedReg.MatchString(err.Error()) {
+					return
+				}
 
-	e := echo.New()
-	e.Listener = s
-	e.TLSListener = s
-	e.Server = httpServer
-	e.TLSServer = httpServer
-	e.HideBanner = true
-	e.HidePort = true
-
-	s.Echo = e
+				panic(err)
+			}
+		}
+	}(s)
 
 	return s, nil
-}
-
-func (s *Server) Start() error {
-	// return s.TLSListener.
-	return s.Echo.StartServer(s.Echo.TLSServer)
 }
 
 // Accept implements the net.Listener interface
@@ -92,21 +90,20 @@ func (s *Server) Accept() (net.Conn, error) {
 		return fnErr(conn, err)
 	}
 
+	tc, _ := newTransportConn(conn, true)
+
 	if tlsConn.ConnectionState().ServerName != "" {
 		for _, service := range s.Handlers {
-			if service.matchFunction(tlsConn.ConnectionState().ServerName) {
-				fmt.Println("handle", s.Certificate.ID().String())
-				err = service.Handle(tlsConn)
-				if err != nil {
-					return fnErr(conn, fmt.Errorf("during handle function: %s", err.Error()))
-				}
-
-				return tlsConn, nil
+			if service.matchFunction(tc.ConnectionState().ServerName) {
+				go service.Handle(tc)
+				return nil, nil
 			}
 		}
 	}
 
-	return tlsConn, nil
+	tc.Close()
+
+	return nil, nil
 }
 
 // Close implements the net.Listener interface
@@ -144,7 +141,6 @@ func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.C
 
 	tlsConfig := GetBaseTLSConfig(hostName, s.Certificate)
 
-	fmt.Println("dial from", s.Certificate.ID().String(), "to", hostName)
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -155,7 +151,7 @@ func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.C
 		return nil, err
 	}
 
-	tc := newTransportConn(conn)
+	tc, _ := newTransportConn(conn, false)
 
 	return tc, nil
 }
