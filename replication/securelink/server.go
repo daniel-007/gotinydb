@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"regexp"
+	"net/http"
 	"time"
+
+	"github.com/labstack/echo"
 
 	"github.com/alexandrestein/gotinydb/replication/common"
 )
@@ -14,6 +16,7 @@ type (
 	// Server provides a good way to have many services on one sign open port.
 	// Regester services which are selected with a tls host name prefix.
 	Server struct {
+		Echo        *echo.Echo
 		AddrStruct  *common.Addr
 		TLSListener net.Listener
 		Certificate *Certificate
@@ -21,6 +24,10 @@ type (
 		Handlers    []Handler
 
 		getHostNameFromAddr FuncGetHostNameFromAddr
+	}
+
+	closedConn struct {
+		net.Conn
 	}
 )
 
@@ -42,6 +49,7 @@ func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNam
 
 	s := &Server{
 		// Ctx:         ctx,
+		Echo:        echo.New(),
 		AddrStruct:  addr,
 		TLSListener: tlsListener,
 		Certificate: cert,
@@ -51,19 +59,29 @@ func NewServer(port uint16, tlsConfig *tls.Config, cert *Certificate, getHostNam
 		getHostNameFromAddr: getHostNameFromAddr,
 	}
 
-	go func(s *Server) {
-		isListenerClosedReg := regexp.MustCompile(": use of closed network connection$")
-		for {
-			_, err := s.Accept()
-			if err != nil {
-				if isListenerClosedReg.MatchString(err.Error()) {
-					return
-				}
+	s.Echo.TLSListener = s
+	s.Echo.HideBanner = true
+	s.Echo.HidePort = true
 
-				panic(err)
-			}
-		}
-	}(s)
+	httpServer := new(http.Server)
+	httpServer.TLSConfig = tlsConfig
+	httpServer.Addr = addr.String()
+
+	go s.Echo.StartServer(httpServer)
+
+	// go func(s *Server) {
+	// 	isListenerClosedReg := regexp.MustCompile(": use of closed network connection$")
+	// 	for {
+	// 		_, err := s.Accept()
+	// 		if err != nil {
+	// 			if isListenerClosedReg.MatchString(err.Error()) {
+	// 				return
+	// 			}
+
+	// 			panic(err)
+	// 		}
+	// 	}
+	// }(s)
 
 	return s, nil
 }
@@ -100,15 +118,16 @@ func (s *Server) Accept() (net.Conn, error) {
 		for _, service := range s.Handlers {
 			if service.Match(tc.ConnectionState().ServerName) {
 				// if service.matchFunction(tc.ConnectionState().ServerName) {
-				go service.Handle(tc)
-				return nil, nil
+				service.Handle(tc)
+
+				// closedConn :=
+
+				return &closedConn{conn}, nil
 			}
 		}
 	}
 
-	tc.Close()
-
-	return nil, nil
+	return conn, nil
 }
 
 // Close implements the net.Listener interface
@@ -146,4 +165,14 @@ func (s *Server) Dial(addr, hostNamePrefix string, timeout time.Duration) (net.C
 	}
 
 	return NewServiceConnector(addr, hostName, s.Certificate, timeout)
+}
+
+func (cc *closedConn) Read(b []byte) (n int, err error) {
+	return 0, cc.error()
+}
+func (cc *closedConn) Write(b []byte) (n int, err error) {
+	return 0, cc.error()
+}
+func (cc *closedConn) error() error {
+	return fmt.Errorf("handeled")
 }

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/alexandrestein/gotinydb/replication/securelink"
 )
 
@@ -100,6 +102,7 @@ func TestTransportAndServer(t *testing.T) {
 
 	// t.Run("net.Listener interface", testNetListenerInterface)
 	t.Run("deregister", testDeregister)
+	t.Run("http fallback", httpFallback)
 
 	err = s1.Close()
 	if err != nil {
@@ -179,38 +182,20 @@ func handle2(connAsServer net.Conn) error {
 	return nil
 }
 
-// func testNetListenerInterface(t *testing.T) {
-// 	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "cli")
-// 	conn, err := securelink.NewServiceConnector(":3461", "test.1", cert, time.Second)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+func httpFallback(t *testing.T) {
+	cert, _ := ca.NewCert(securelink.KeyTypeEc, securelink.KeyLengthEc384, time.Hour, securelink.GetCertTemplate(nil, nil), "cli")
 
-// 	localAddr := conn.LocalAddr()
-// 	if testing.Verbose() {
-// 		t.Logf("the local address is: %s", localAddr.String())
-// 	}
+	s, err := securelink.NewServer(7777, securelink.GetBaseTLSConfig("1", cert), cert, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	remoteAddr := conn.RemoteAddr()
-// 	if testing.Verbose() {
-// 		t.Logf("the remote address is: %s", remoteAddr.String())
-// 	}
+	s.Echo.GET("/", func(c echo.Context) error {
+		return c.String(200, "OK")
+	})
 
-// 	t0 := time.Now().Add(time.Second)
-
-// 	err = conn.SetDeadline(t0)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	err = conn.SetReadDeadline(t0)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	err = conn.SetWriteDeadline(t0)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+	t.Fatalf("test with client")
+}
 
 func testDeregister(t *testing.T) {
 	s1.DeregisterService("testGroup")
