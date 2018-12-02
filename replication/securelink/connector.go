@@ -24,7 +24,7 @@ func GetBaseTLSConfig(host string, cert *Certificate) *tls.Config {
 		ServerName:   host,
 		Certificates: []tls.Certificate{cert.GetTLSCertificate()},
 		RootCAs:      cert.CertPool,
-		NextProtos:   []string{"h2"},
+		NextProtos:   []string{"h2", "http/1.1"},
 	}
 }
 

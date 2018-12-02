@@ -113,7 +113,7 @@ func TestTransportAndServer(t *testing.T) {
 
 // Accept a connection and contact the other server to get the second secret and return the second secret
 // to the first one.
-func handle1(connAsServer *securelink.TransportConn) error {
+func handle1(connAsServer net.Conn) error {
 	buf := make([]byte, 100)
 	n, err := connAsServer.Read(buf)
 	if err != nil {
@@ -123,7 +123,9 @@ func handle1(connAsServer *securelink.TransportConn) error {
 		tt.Fatal(err)
 	}
 
-	remoteClientServerName := connAsServer.ConnectionState().ServerName
+	cs := connAsServer.(*securelink.TransportConn).ConnectionState()
+
+	remoteClientServerName := cs.ServerName
 
 	var connAsClient net.Conn
 	connAsClient, err = s1.Dial(":3462", "test", time.Millisecond*500)
@@ -132,7 +134,7 @@ func handle1(connAsServer *securelink.TransportConn) error {
 	}
 	defer connAsClient.Close()
 
-	remoteServerServerName := connAsServer.ConnectionState().ServerName
+	remoteServerServerName := cs.ServerName
 
 	if remoteClientServerName != remoteServerServerName {
 		tt.Fatalf("the connected client and the corresponding server are not corresponding %s != %s", remoteClientServerName, remoteServerServerName)
@@ -158,7 +160,7 @@ func handle1(connAsServer *securelink.TransportConn) error {
 }
 
 // Check that the client sent secret one and returns secret 2
-func handle2(connAsServer *securelink.TransportConn) error {
+func handle2(connAsServer net.Conn) error {
 	buf := make([]byte, 100)
 	n, err := connAsServer.Read(buf)
 	if err != nil {

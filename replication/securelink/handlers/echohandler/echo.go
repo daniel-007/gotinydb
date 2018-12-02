@@ -44,7 +44,7 @@ func New(addr net.Addr, name string, tlsConfig *tls.Config) (*Handler, error) {
 
 	e := echo.New()
 	e.TLSListener = li
-	e.Listener = li
+	// e.Listener = li
 
 	return &Handler{
 		name:       name,
@@ -56,12 +56,22 @@ func New(addr net.Addr, name string, tlsConfig *tls.Config) (*Handler, error) {
 }
 
 func (h *Handler) Start() error {
+	// err := http2.ConfigureServer(h.httpServer, nil)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// fmt.Println("sss", h.Echo.Server.)
 	return h.Echo.StartServer(h.httpServer)
+	// return h.Echo.StartServer(h.httpServer)
+	// return h.Echo.Server.ServeTLS(h.Echo.TLSListener, "", "")
 }
 
 func (h *Handler) Handle(conn net.Conn) error {
 	fmt.Println("handle")
 	h.Listener.acceptChan <- conn
+	// fmt.Println("close")
+	// conn.Close()
 	return nil
 }
 
@@ -74,6 +84,7 @@ func (h *Handler) Name() string {
 }
 
 func (l *Listener) Accept() (net.Conn, error) {
+	fmt.Println("accept")
 	conn := <-l.acceptChan
 	return conn, nil
 }
